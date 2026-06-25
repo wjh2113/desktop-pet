@@ -37,6 +37,7 @@ class Mood:
     body: str
     cheek: str
     message: str
+    expression: str
 
 
 @dataclass
@@ -46,11 +47,16 @@ class WindowInfo:
 
 
 MOODS = [
-    Mood("happy", "#ffd1dc", "#ff8fb3", "\u4eca\u5929\u4e5f\u8981\u8d34\u8d34\u3002"),
-    Mood("curious", "#c7f0ff", "#6ec7e8", "\u4f60\u5728\u505a\u4ec0\u4e48\u5440\uff1f"),
-    Mood("sleepy", "#d9d1ff", "#a697ff", "\u6211\u5148\u772f\u4e00\u5c0f\u4f1a\u513f\u3002"),
-    Mood("hungry", "#ffe4a3", "#ffbd59", "\u60f3\u5403\u5c0f\u997c\u5e72\u3002"),
+    Mood("happy", "#ffd1dc", "#ff8fb3", "\u4eca\u5929\u4e5f\u8981\u8d34\u8d34\u3002", "smile"),
+    Mood("curious", "#c7f0ff", "#6ec7e8", "\u4f60\u5728\u505a\u4ec0\u4e48\u5440\uff1f", "curious"),
+    Mood("sleepy", "#d9d1ff", "#a697ff", "\u6211\u5148\u772f\u4e00\u5c0f\u4f1a\u513f\u3002", "sleepy"),
+    Mood("hungry", "#ffe4a3", "#ffbd59", "\u60f3\u5403\u5c0f\u997c\u5e72\u3002", "hungry"),
+    Mood("focused", "#b9e6c9", "#6fcf97", "\u6211\u8fdb\u5165\u4e13\u6ce8\u5de1\u903b\u6a21\u5f0f\u3002", "focused"),
+    Mood("proud", "#ffd6a5", "#ff9f1c", "\u4eca\u5929\u7684\u4f60\u5f88\u6709\u884c\u52a8\u529b\uff01", "proud"),
+    Mood("worried", "#cfd7e6", "#92a4bd", "\u8981\u4e0d\u8981\u4f11\u606f\u4e00\u4e0b\uff1f", "worried"),
+    Mood("excited", "#ffc6ff", "#e879f9", "\u54c7\uff0c\u51b2\u8d77\u6765\u4e86\uff01", "excited"),
 ]
+MOOD_BY_NAME = {mood.name: mood for mood in MOODS}
 
 
 def today_key() -> str:
@@ -216,6 +222,7 @@ class DesktopPet:
         self.mood = random.choice(MOODS)
         self.message = self.mood.message
         self.message_until = 180
+        self.mood_changed_at = time.time()
         self.drag_start: tuple[int, int] | None = None
         self.walk_dx = random.choice([-1, 1])
         self.walk_timer = 0
@@ -297,6 +304,12 @@ class DesktopPet:
     def say(self, text: str, duration: int = 150) -> None:
         self.message = text
         self.message_until = duration
+
+    def set_mood(self, name: str, message: str | None = None, duration: int = 180) -> None:
+        self.mood = MOOD_BY_NAME.get(name, self.mood)
+        self.is_sleeping = self.mood.name == "sleepy"
+        self.mood_changed_at = time.time()
+        self.say(message or self.mood.message, duration)
 
     def speak(self, text: str) -> None:
         self.say(text, 240)
@@ -400,20 +413,15 @@ class DesktopPet:
     def change_mood(self, _event: tk.Event | None = None) -> None:
         current = self.mood
         choices = [mood for mood in MOODS if mood != current]
-        self.mood = random.choice(choices)
-        self.is_sleeping = self.mood.name == "sleepy"
-        self.say(self.mood.message)
+        chosen = random.choice(choices)
+        self.set_mood(chosen.name)
 
     def feed(self) -> None:
-        self.mood = MOODS[0]
-        self.is_sleeping = False
-        self.say("\u55f7\u545c\uff0c\u8c22\u8c22\u6295\u5582\uff01", 210)
+        self.set_mood("happy", "\u55f7\u545c\uff0c\u8c22\u8c22\u6295\u5582\uff01", 210)
         self.play_tone(784, 60)
 
     def play(self) -> None:
-        self.mood = MOODS[1]
-        self.is_sleeping = False
-        self.say("\u6765\u73a9\u8ffd\u5149\u70b9\uff01", 210)
+        self.set_mood("excited", "\u6765\u73a9\u8ffd\u5149\u70b9\uff01", 210)
         self.walk_timer = 90
         self.walk_dx = random.choice([-3, 3])
         self.play_tone(988, 55)
@@ -427,33 +435,31 @@ class DesktopPet:
         self.drop_velocity = 0.0
         self.drop_active = True
         self.walk_timer = 0
-        self.is_sleeping = False
+        self.set_mood("excited", "\u54bb\u2014\u2014\u63a5\u4f4f\u6211\uff01", 170)
         self.squash = -0.18
-        self.say("\u54bb\u2014\u2014\u63a5\u4f4f\u6211\uff01", 170)
         self.play_drop_start_sound()
         self.root.geometry(f"+{self.x}+{self.y}")
 
     def nap(self) -> None:
-        self.mood = MOODS[2]
-        self.is_sleeping = True
         self.drop_active = False
-        self.say("\u665a\u5b89\u4e00\u5206\u949f\u3002", 240)
+        self.set_mood("sleepy", "\u665a\u5b89\u4e00\u5206\u949f\u3002", 240)
 
     def start_pomodoro(self) -> None:
         self.pomodoro_running = True
         self.pomodoro_last_tick = time.time()
+        self.set_mood("focused", "\u756a\u8304\u949f\u5f00\u59cb\uff0c\u6211\u966a\u4f60\u4e13\u6ce8\u3002", 210)
         self.speak("\u756a\u8304\u949f\u5f00\u59cb\uff0c\u6211\u966a\u4f60\u4e13\u6ce8\u3002")
 
     def pause_pomodoro(self) -> None:
         self.update_pomodoro()
         self.pomodoro_running = False
-        self.say("\u756a\u8304\u949f\u5df2\u6682\u505c\u3002", 180)
+        self.set_mood("curious", "\u756a\u8304\u949f\u5df2\u6682\u505c\u3002", 180)
 
     def reset_pomodoro(self) -> None:
         self.pomodoro_mode = "focus"
         self.pomodoro_running = False
         self.pomodoro_remaining = FOCUS_SECONDS
-        self.say("\u756a\u8304\u949f\u91cd\u7f6e\u597d\u4e86\u3002", 180)
+        self.set_mood("happy", "\u756a\u8304\u949f\u91cd\u7f6e\u597d\u4e86\u3002", 180)
 
     def update_pomodoro(self) -> None:
         now = time.time()
@@ -469,10 +475,12 @@ class DesktopPet:
             self.pomodoro_sessions += 1
             self.pomodoro_mode = "break"
             self.pomodoro_remaining = BREAK_SECONDS
+            self.set_mood("proud", "\u4e00\u4e2a\u756a\u8304\u5b8c\u6210\uff01", 220)
             self.speak("\u4e00\u4e2a\u756a\u8304\u5b8c\u6210\uff01\u770b\u770b\u4eca\u65e5\u4e09\u4ef6\u4e8b\u63a8\u8fdb\u4e86\u54ea\u4e00\u4ef6\uff0c\u7136\u540e\u8d77\u6765\u6d3b\u52a8\u4e94\u5206\u949f\u5427\u3002")
         else:
             self.pomodoro_mode = "focus"
             self.pomodoro_remaining = FOCUS_SECONDS
+            self.set_mood("focused", "\u4f11\u606f\u7ed3\u675f\uff0c\u6211\u4eec\u7ee7\u7eed\u3002", 210)
             self.speak("\u4f11\u606f\u7ed3\u675f\uff0c\u4e0b\u4e00\u8f6e\u5f00\u59cb\u5566\u3002")
 
     def pomodoro_label(self) -> str:
@@ -530,11 +538,13 @@ class DesktopPet:
         self.active_stretch_seconds += 1
         if self.active_stretch_seconds >= EYE_REMINDER_SECONDS and now - self.last_eye_reminder >= EYE_REMINDER_SECONDS:
             self.last_eye_reminder = now
+            self.set_mood("worried", "\u773c\u775b\u8981\u4f11\u606f\u4e00\u4e0b\u3002", 190)
             self.speak("\u770b\u5c4f\u5e55\u4e8c\u5341\u5206\u949f\u5566\uff0c\u770b\u770b\u8fdc\u5904\uff0c\u8ba9\u773c\u775b\u653e\u677e\u4e00\u4e0b\u3002")
 
         if self.active_stretch_seconds >= STAND_REMINDER_SECONDS and now - self.last_stand_reminder >= STAND_REMINDER_SECONDS:
             self.last_stand_reminder = now
             self.active_stretch_seconds = 0
+            self.set_mood("worried", "\u8d77\u6765\u6d3b\u52a8\u4e00\u4e0b\u5427\u3002", 210)
             self.speak("\u4f60\u5df2\u7ecf\u8fde\u7eed\u5750\u4e86\u5f88\u4e45\u3002\u8d77\u6765\u559d\u6c34\u3001\u6d3b\u52a8\u4e00\u4e0b\u5427\u3002")
 
     def open_tasks(self) -> None:
@@ -578,7 +588,8 @@ class DesktopPet:
             ]
             self.save_tasks()
             done_count = sum(1 for task in self.tasks if task.get("done"))
-            self.say(f"\u4e09\u4ef6\u4e8b\u5df2\u4fdd\u5b58\uff0c\u5b8c\u6210 {done_count}/3\u3002", 200)
+            mood = "proud" if done_count else "curious"
+            self.set_mood(mood, f"\u4e09\u4ef6\u4e8b\u5df2\u4fdd\u5b58\uff0c\u5b8c\u6210 {done_count}/3\u3002", 200)
             if close:
                 win.destroy()
 
@@ -636,6 +647,7 @@ class DesktopPet:
         lines.extend(["", "## \u840c\u5ba0\u5efa\u8bae", f"- {suggestion}", ""])
 
         report_path.write_text("\n".join(lines), encoding="utf-8")
+        self.set_mood("proud", "\u4eca\u65e5\u603b\u7ed3\u5df2\u751f\u6210\u3002", 210)
         self.speak("\u4eca\u65e5\u603b\u7ed3\u5df2\u751f\u6210\u3002")
         self.open_report_window(report_path)
         return report_path
@@ -871,6 +883,23 @@ class DesktopPet:
                 self.walk_dx *= -1
             self.root.geometry(f"+{self.x}+{self.y}")
 
+    def maybe_shift_mood(self) -> None:
+        if self.drop_active or self.is_sleeping or self.pomodoro_running:
+            return
+        if time.time() - self.mood_changed_at < random.randint(45, 90):
+            return
+        mood_name = random.choice(["happy", "curious", "hungry", "excited", "worried"])
+        if mood_name == self.mood.name:
+            return
+        idle_lines = {
+            "happy": ["\u6211\u4eca\u5929\u72b6\u6001\u4e0d\u9519\u3002", "\u5728\u684c\u9762\u966a\u4f60\u5f85\u673a\u4e2d\u3002"],
+            "curious": ["\u4f60\u521a\u624d\u5728\u5fd9\u4ec0\u4e48\uff1f", "\u6211\u60f3\u770b\u770b\u4eca\u65e5\u4e09\u4ef6\u4e8b\u3002"],
+            "hungry": ["\u6709\u6ca1\u6709\u5c0f\u997c\u5e72\uff1f", "\u6211\u597d\u50cf\u6709\u70b9\u997f\u4e86\u3002"],
+            "excited": ["\u8981\u4e0d\u8981\u6765\u4e2a Q \u5f39\u4e0b\u843d\uff1f", "\u6211\u89c9\u5f97\u4eca\u5929\u80fd\u63a8\u8fdb\u5f88\u591a\u3002"],
+            "worried": ["\u522b\u5fd8\u4e86\u4f11\u606f\u773c\u775b\u3002", "\u8981\u4e0d\u8981\u559d\u53e3\u6c34\uff1f"],
+        }
+        self.set_mood(mood_name, random.choice(idle_lines[mood_name]), 190)
+
     def update_drop(self) -> None:
         if not self.drop_active:
             self.squash *= 0.82
@@ -896,7 +925,7 @@ class DesktopPet:
                 self.drop_active = False
                 self.drop_velocity = 0.0
                 self.squash = 0.34
-                self.say("boing\uff01\u843d\u5730\u6210\u529f\u3002", 170)
+                self.set_mood("excited", "boing\uff01\u843d\u5730\u6210\u529f\u3002", 170)
         else:
             self.squash = max(-0.22, -abs(self.drop_velocity) / 95)
 
@@ -964,9 +993,30 @@ class DesktopPet:
     def draw_face(self, cx: float, cy: float, blink: bool) -> None:
         face_drop = max(self.squash, 0) * 5
         eye_y = cy - 7 + face_drop
-        if self.is_sleeping:
+        expression = self.mood.expression
+        if self.is_sleeping or expression == "sleepy":
             self.canvas.create_arc(cx - 34, eye_y - 4, cx - 14, eye_y + 13, start=190, extent=150, style=tk.ARC, outline="#3d2f37", width=3)
             self.canvas.create_arc(cx + 14, eye_y - 4, cx + 34, eye_y + 13, start=200, extent=150, style=tk.ARC, outline="#3d2f37", width=3)
+        elif expression == "excited":
+            self.canvas.create_text(cx - 25, eye_y, text="\u2605", fill="#3d2f37", font=("Segoe UI Symbol", 16, "bold"))
+            self.canvas.create_text(cx + 25, eye_y, text="\u2605", fill="#3d2f37", font=("Segoe UI Symbol", 16, "bold"))
+        elif expression == "focused":
+            self.canvas.create_line(cx - 39, eye_y - 14, cx - 14, eye_y - 9, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 14, eye_y - 9, cx + 39, eye_y - 14, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 34, eye_y - 9, cx - 16, eye_y + 12, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx + 16, eye_y - 9, cx + 34, eye_y + 12, fill="#3d2f37", outline="")
+        elif expression == "proud":
+            self.canvas.create_arc(cx - 36, eye_y - 8, cx - 14, eye_y + 12, start=200, extent=145, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx + 14, eye_y - 8, cx + 36, eye_y + 12, start=195, extent=145, style=tk.ARC, outline="#3d2f37", width=3)
+        elif expression == "worried":
+            self.canvas.create_line(cx - 39, eye_y - 12, cx - 16, eye_y - 17, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 16, eye_y - 17, cx + 39, eye_y - 12, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 34, eye_y - 8, cx - 16, eye_y + 11, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx + 16, eye_y - 8, cx + 34, eye_y + 11, fill="#3d2f37", outline="")
+        elif expression == "curious":
+            self.canvas.create_oval(cx - 36, eye_y - 13, cx - 14, eye_y + 15, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx + 17, eye_y - 9, cx + 33, eye_y + 11, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx - 29, eye_y - 8, cx - 23, eye_y - 2, fill="#ffffff", outline="")
         elif blink:
             self.canvas.create_line(cx - 35, eye_y + 2, cx - 16, eye_y + 2, fill="#3d2f37", width=3, capstyle=tk.ROUND)
             self.canvas.create_line(cx + 16, eye_y + 2, cx + 35, eye_y + 2, fill="#3d2f37", width=3, capstyle=tk.ROUND)
@@ -977,8 +1027,17 @@ class DesktopPet:
             self.canvas.create_oval(cx + 21, eye_y - 8, cx + 27, eye_y - 2, fill="#ffffff", outline="")
 
         self.canvas.create_oval(cx - 9, cy + 12 + face_drop, cx + 9, cy + 22 + face_drop, fill="#3d2f37", outline="")
-        self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
-        self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+        if expression == "worried":
+            self.canvas.create_arc(cx - 18, cy + 29 + face_drop, cx + 18, cy + 52 + face_drop, start=25, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+        elif expression == "hungry":
+            self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx + 4, cy + 31 + face_drop, cx + 14, cy + 42 + face_drop, fill="#ff6f91", outline="")
+        elif expression == "focused":
+            self.canvas.create_line(cx - 13, cy + 35 + face_drop, cx + 13, cy + 35 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+        else:
+            self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
         self.canvas.create_oval(cx - 52, cy + 14 + face_drop, cx - 32, cy + 29 + face_drop, fill=self.mood.cheek, outline="")
         self.canvas.create_oval(cx + 32, cy + 14 + face_drop, cx + 52, cy + 29 + face_drop, fill=self.mood.cheek, outline="")
 
@@ -1006,6 +1065,8 @@ class DesktopPet:
             self.change_mood()
         if self.tick % 420 == 0 and not self.is_sleeping:
             self.say(random.choice(["\u6211\u5728\u966a\u4f60\u5de5\u4f5c\u3002", "\u8bb0\u5f97\u559d\u6c34\u3002", "\u53cc\u51fb\u6211\u4f1a\u53d8\u5fc3\u60c5\u3002", "\u53f3\u952e\u6709\u83dc\u5355\u54e6\u3002"]))
+        if self.tick % 90 == 0:
+            self.maybe_shift_mood()
         self.update_drop()
         self.maybe_walk()
         self.draw_pet()
