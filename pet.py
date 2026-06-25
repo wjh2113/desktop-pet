@@ -475,6 +475,7 @@ class DesktopPet:
         self.last_stand_reminder = time.time()
         self.last_distraction_reminder = 0.0
         self.next_proactive_at = time.time() + random.randint(240, 420)
+        self.next_action_at = time.time() + random.randint(45, 90)
 
         self.menu = tk.Menu(self.root, tearoff=0)
         self.menu.add_command(label="\u6295\u5582", command=self.feed)
@@ -485,12 +486,6 @@ class DesktopPet:
         for skin_id, skin_name in SKINS.items():
             skin_menu.add_command(label=skin_name, command=lambda value=skin_id: self.set_skin(value))
         self.menu.add_cascade(label="\u5207\u6362\u5f62\u8c61", menu=skin_menu)
-        action_menu = tk.Menu(self.menu, tearoff=0)
-        for action_id, action in PET_ACTIONS.items():
-            action_menu.add_command(label=action.label, command=lambda value=action_id: self.set_action(value))
-        action_menu.add_separator()
-        action_menu.add_command(label="\u6062\u590d\u65e5\u5e38", command=self.clear_action)
-        self.menu.add_cascade(label="\u5207\u6362\u52a8\u4f5c/\u89d2\u8272", menu=action_menu)
         self.menu.add_separator()
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u756a\u8304\u949f", command=self.toggle_pomodoro_widget)
         self.menu.add_separator()
@@ -568,6 +563,21 @@ class DesktopPet:
         self.current_action = action_id
         self.action_until = duration
         self.set_mood(action.mood, action.message, 230)
+
+    def schedule_next_action(self, soon: bool = False) -> None:
+        delay = random.randint(35, 70) if soon else random.randint(120, 240)
+        self.next_action_at = time.time() + delay
+
+    def maybe_auto_action(self) -> None:
+        now = time.time()
+        if now < self.next_action_at:
+            return
+        if self.current_action or self.drop_active or self.is_sleeping or self.pomodoro_running or self.message_until > 0:
+            self.schedule_next_action(soon=True)
+            return
+        action_id = random.choice(["teacher", "plant", "home", "study", "drink", "paint", "doctor", "chef"])
+        self.set_action(action_id, duration=random.randint(520, 900))
+        self.schedule_next_action()
 
     def clear_action(self) -> None:
         self.current_action = None
@@ -1662,6 +1672,7 @@ class DesktopPet:
             self.action_until -= 1
             if self.action_until == 0:
                 self.current_action = None
+                self.schedule_next_action()
 
         if self.is_sleeping:
             z_y = 44 + math.sin(self.tick / 10) * 5
@@ -2082,6 +2093,8 @@ class DesktopPet:
             self.maybe_shift_mood()
         if self.tick % 120 == 0:
             self.maybe_proactive_interaction()
+        if self.tick % 150 == 0:
+            self.maybe_auto_action()
         self.update_drop()
         self.maybe_walk()
         self.draw_pet()
