@@ -11,8 +11,28 @@ import random
 import shutil
 import struct
 import subprocess
+import sys
 import threading
 import time
+
+
+def configure_tk_runtime() -> None:
+    base = getattr(sys, "_MEIPASS", None)
+    if base:
+        tcl_root = os.path.join(str(base), "tcl")
+    else:
+        prefix = getattr(sys, "base_prefix", sys.prefix)
+        tcl_root = os.path.join(prefix, "tcl")
+    tcl_library = os.path.join(tcl_root, "tcl8.6")
+    tk_library = os.path.join(tcl_root, "tk8.6")
+    if os.path.exists(os.path.join(tcl_library, "init.tcl")):
+        os.environ.setdefault("TCL_LIBRARY", tcl_library)
+    if os.path.exists(os.path.join(tk_library, "tk.tcl")):
+        os.environ.setdefault("TK_LIBRARY", tk_library)
+
+
+configure_tk_runtime()
+
 import tkinter as tk
 import tkinter.messagebox as messagebox
 from tkinter import ttk
@@ -33,8 +53,10 @@ import win32com.client
 TRANSPARENT = "#ff00ff"
 FPS_MS = 33
 INK = "#5a4540"
-LEGACY_DATA_DIR = Path(__file__).with_name("data")
-LEGACY_REPORTS_DIR = Path(__file__).with_name("reports")
+APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR))
+LEGACY_DATA_DIR = APP_DIR / "data"
+LEGACY_REPORTS_DIR = APP_DIR / "reports"
 APP_STORAGE_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "DesktopPet"
 DATA_DIR = APP_STORAGE_DIR / "data"
 REPORTS_DIR = APP_STORAGE_DIR / "reports"
@@ -42,7 +64,7 @@ CLOUD_CONFIG_PATH = DATA_DIR / "cloud-config.json"
 DEEPSEEK_CONFIG_PATH = DATA_DIR / "deepseek-config.json"
 PET_CONFIG_PATH = DATA_DIR / "pet-config.json"
 COMPANION_STATE_PATH = DATA_DIR / "companion-state.json"
-RECOGNIZER_SCRIPT = Path(__file__).with_name("scripts") / "recognize-once.ps1"
+RECOGNIZER_SCRIPT = RESOURCE_DIR / "scripts" / "recognize-once.ps1"
 FOCUS_SECONDS = 25 * 60
 BREAK_SECONDS = 5 * 60
 EYE_REMINDER_SECONDS = 20 * 60

@@ -2,6 +2,9 @@ __pycache__/
 *.py[cod]
 data/
 reports/
+build/
+dist/
+*.spec
 .venv/
 venv/
 *.log
