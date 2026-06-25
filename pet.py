@@ -223,6 +223,7 @@ class DesktopPet:
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
         self.root.configure(bg=TRANSPARENT)
+        self.root.configure(cursor="hand2")
         self.root.wm_attributes("-transparentcolor", TRANSPARENT)
 
         self.ui_scale = 0.45
@@ -230,7 +231,14 @@ class DesktopPet:
         self.logical_height = 240
         self.width = int(self.logical_width * self.ui_scale)
         self.height = int(self.logical_height * self.ui_scale)
-        self.canvas = tk.Canvas(self.root, width=self.width, height=self.height, bg=TRANSPARENT, highlightthickness=0)
+        self.canvas = tk.Canvas(
+            self.root,
+            width=self.width,
+            height=self.height,
+            bg=TRANSPARENT,
+            highlightthickness=0,
+            cursor="hand2",
+        )
         self.canvas.pack()
 
         screen_w = self.root.winfo_screenwidth()
