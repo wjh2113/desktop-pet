@@ -4,6 +4,8 @@ data/
 reports/
 build/
 dist/
+github-artifacts/
+release/
 *.spec
 .venv/
 venv/
