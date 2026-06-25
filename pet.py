@@ -15,6 +15,7 @@ import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 import wave
@@ -34,6 +35,8 @@ DATA_DIR = Path(__file__).with_name("data")
 REPORTS_DIR = Path(__file__).with_name("reports")
 CLOUD_CONFIG_PATH = DATA_DIR / "cloud-config.json"
 DEEPSEEK_CONFIG_PATH = DATA_DIR / "deepseek-config.json"
+PET_CONFIG_PATH = DATA_DIR / "pet-config.json"
+COMPANION_STATE_PATH = DATA_DIR / "companion-state.json"
 RECOGNIZER_SCRIPT = Path(__file__).with_name("scripts") / "recognize-once.ps1"
 FOCUS_SECONDS = 25 * 60
 BREAK_SECONDS = 5 * 60
@@ -55,6 +58,19 @@ DISTRACTION_KEYWORDS = [
     "\u6e38\u620f",
     "\u76f4\u64ad",
 ]
+PERSONALITY_PACKS = {
+    "gentle": "\u6e29\u67d4\u966a\u4f34\u578b",
+    "teacher": "\u5c0f\u8001\u5e08\u578b",
+    "energetic": "\u5143\u6c14\u6253\u6c14\u578b",
+    "direct": "\u76f4\u63a5\u9ad8\u6548\u578b",
+}
+OWNER_EMOTIONS = {
+    "happy": ("\u5f00\u5fc3", "happy", "\u6211\u611f\u89c9\u5230\u4f60\u4eca\u5929\u6709\u5149\uff0c\u6211\u4e5f\u8ddf\u7740\u5f00\u5fc3\u3002"),
+    "tired": ("\u7d2f", "sleepy", "\u90a3\u6211\u653e\u8f7b\u4e00\u70b9\uff0c\u5148\u966a\u4f60\u6162\u6162\u6765\u3002"),
+    "anxious": ("\u7126\u8651", "worried", "\u5148\u547c\u5438\u4e00\u4e0b\uff0c\u6211\u4eec\u53ea\u627e\u4e0b\u4e00\u4e2a\u5c0f\u6b65\u9aa4\u3002"),
+    "low": ("\u4f4e\u843d", "worried", "\u4eca\u5929\u5141\u8bb8\u6162\u4e00\u70b9\uff0c\u6211\u5728\u8fd9\u91cc\u966a\u4f60\u3002"),
+    "focused": ("\u60f3\u4e13\u6ce8", "focused", "\u597d\uff0c\u6211\u4f1a\u5c11\u8bf4\u4e00\u70b9\uff0c\u966a\u4f60\u628a\u6ce8\u610f\u529b\u6536\u56de\u6765\u3002"),
+}
 
 
 @dataclass
@@ -107,6 +123,7 @@ PET_ACTIONS = {
     "chef": PetAction("\u53a8\u5e08", "hungry", "\u4eca\u5929\u505a\u70b9\u6696\u4e4e\u4e4e\u7684\u597d\u5403\u7684\u3002", ("\u53a8\u5e08", "\u505a\u996d", "\u70f9\u996a")),
     "paint": PetAction("\u753b\u753b", "excited", "\u753b\u4e00\u70b9\u5f69\u8272\uff0c\u684c\u9762\u4f1a\u66f4\u53ef\u7231\u3002", ("\u753b\u753b", "\u753b\u753b", "\u753b\u5bb6")),
     "doctor": PetAction("\u5c0f\u533b\u751f", "worried", "\u5c0f\u533b\u751f\u5de1\u8bca\uff1a\u522b\u5fd8\u4e86\u4f11\u606f\u548c\u559d\u6c34\u3002", ("\u533b\u751f", "\u770b\u75c5", "\u62a4\u58eb")),
+    "stretch": PetAction("\u4f38\u5c55", "happy", "\u8ddf\u6211\u4e00\u8d77\u62c9\u4f38\u4e00\u4e0b\uff0c\u80a9\u9888\u4f1a\u8f7b\u4e00\u70b9\u3002", ("\u4f38\u5c55", "\u62c9\u4f38", "\u4e45\u5750")),
 }
 
 
@@ -342,7 +359,7 @@ class CloudSyncClient:
                 continue
             for pattern in patterns:
                 for path in folder.glob(pattern):
-                    if path in {CLOUD_CONFIG_PATH, DEEPSEEK_CONFIG_PATH} or path.suffix == ".tmp":
+                    if path in {CLOUD_CONFIG_PATH, DEEPSEEK_CONFIG_PATH, PET_CONFIG_PATH, COMPANION_STATE_PATH} or path.suffix == ".tmp":
                         continue
                     try:
                         content = path.read_text(encoding="utf-8")
@@ -461,6 +478,139 @@ class DeepSeekChatClient:
         return content
 
 
+class PetPreferences:
+    def __init__(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        self.data = self.load()
+
+    def load(self) -> dict:
+        default = {
+            "pet_name": "\u5c0f\u722a",
+            "owner_name": "\u4e3b\u4eba",
+            "personality": "gentle",
+            "personal_preferences": "",
+            "weather_city": "",
+            "moji_weather_url": "",
+            "do_not_disturb": False,
+        }
+        if PET_CONFIG_PATH.exists():
+            try:
+                data = json.loads(PET_CONFIG_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    default.update(data)
+            except json.JSONDecodeError:
+                pass
+        return default
+
+    def save(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        tmp = PET_CONFIG_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(PET_CONFIG_PATH)
+
+    def get(self, key: str, default: object = "") -> object:
+        return self.data.get(key, default)
+
+
+class CompanionState:
+    def __init__(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        self.data = self.load()
+
+    def load(self) -> dict:
+        default = {
+            "owner_emotion": "",
+            "owner_emotion_date": "",
+            "checkins": {},
+            "achievements": {},
+        }
+        if COMPANION_STATE_PATH.exists():
+            try:
+                data = json.loads(COMPANION_STATE_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    default.update(data)
+            except json.JSONDecodeError:
+                pass
+        return default
+
+    def save(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        tmp = COMPANION_STATE_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(COMPANION_STATE_PATH)
+
+    def unlock(self, key: str, title: str) -> bool:
+        achievements = self.data.setdefault("achievements", {})
+        if key in achievements:
+            return False
+        achievements[key] = {"title": title, "date": today_key()}
+        self.save()
+        return True
+
+
+class WeatherClient:
+    def __init__(self, prefs: PetPreferences) -> None:
+        self.prefs = prefs
+
+    def locate_city(self) -> str:
+        configured = str(self.prefs.get("weather_city", "") or "").strip()
+        if configured:
+            return configured
+        try:
+            request = urllib.request.Request("http://ip-api.com/json/?lang=zh-CN", headers={"Accept": "application/json"})
+            with urllib.request.urlopen(request, timeout=8) as response:
+                data = json.loads(response.read().decode("utf-8"))
+            return str(data.get("city") or data.get("regionName") or "").strip()
+        except Exception:
+            return ""
+
+    def fetch(self) -> str:
+        city = self.locate_city()
+        if not city:
+            return "\u6211\u8fd8\u6ca1\u627e\u5230\u5f53\u524d\u57ce\u5e02\uff0c\u53ef\u4ee5\u5728\u504f\u597d\u91cc\u624b\u52a8\u586b\u4e00\u4e2a\u57ce\u5e02\u3002"
+        template = str(self.prefs.get("moji_weather_url", "") or "").strip()
+        if not template:
+            template = "https://tianqi.moji.com/api/weather/citysearch?city_name={city}"
+        url = template.format(city=urllib.parse.quote(city), city_raw=city)
+        request = urllib.request.Request(url, headers={"Accept": "application/json,text/plain,*/*", "User-Agent": "desktop-pet/1.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                raw = response.read().decode("utf-8", errors="replace")
+        except Exception as exc:
+            return f"\u6211\u6ca1\u62ff\u5230 {city} \u7684\u5929\u6c14\uff1a{exc}\u3002"
+        summary = self.parse_weather(raw)
+        return f"{city}\u5929\u6c14\uff1a{summary}" if summary else f"\u6211\u8fde\u4e0a\u4e86\u5929\u6c14\u63a5\u53e3\uff0c\u4f46\u8fd4\u56de\u683c\u5f0f\u6211\u8fd8\u8bfb\u4e0d\u61c2\u3002\u524d 80 \u5b57\uff1a{raw[:80]}"
+
+    def parse_weather(self, raw: str) -> str:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            text = " ".join(raw.split())
+            return text[:90] if text else ""
+        text = json.dumps(data, ensure_ascii=False)
+        parts: list[str] = []
+        for key in ["weather", "condition", "desc", "temperature", "temp", "humidity", "wind", "city_name"]:
+            if key in text:
+                pass
+
+        def collect(obj: object) -> None:
+            if len(parts) >= 5:
+                return
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    lowered = str(key).lower()
+                    if lowered in {"weather", "condition", "desc", "temperature", "temp", "humidity", "wind", "city", "city_name"} and not isinstance(value, (dict, list)):
+                        parts.append(f"{key}:{value}")
+                    else:
+                        collect(value)
+            elif isinstance(obj, list):
+                for item in obj[:3]:
+                    collect(item)
+
+        collect(data)
+        return "\uff0c".join(parts[:5])
+
+
 class DesktopPet:
     def __init__(self) -> None:
         self.root = tk.Tk()
@@ -520,6 +670,9 @@ class DesktopPet:
         self.tracker = ActivityTracker()
         self.cloud = CloudSyncClient()
         self.deepseek = DeepSeekChatClient()
+        self.prefs = PetPreferences()
+        self.companion_state = CompanionState()
+        self.weather = WeatherClient(self.prefs)
         self.cloud_syncing = False
         self.cloud_dirty = False
         self.last_cloud_sync = 0.0
@@ -534,6 +687,7 @@ class DesktopPet:
         self.pomodoro_mode_var = tk.StringVar(value="")
         self.pomodoro_action_var = tk.StringVar(value="")
         self.pomodoro_widget_visible = tk.BooleanVar(value=False)
+        self.do_not_disturb_var = tk.BooleanVar(value=bool(self.prefs.get("do_not_disturb", False)))
         self.pomodoro_progress: tk.Canvas | None = None
         self.tasks = self.load_tasks()
         self.active_stretch_seconds = 0
@@ -557,6 +711,14 @@ class DesktopPet:
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
         self.menu.add_command(label="DeepSeek \u914d\u7f6e", command=self.open_deepseek_settings)
+        self.menu.add_command(label="\u67e5\u5929\u6c14", command=self.check_weather_async)
+        emotion_menu = tk.Menu(self.menu, tearoff=0)
+        for emotion_id, (label, _mood, _message) in OWNER_EMOTIONS.items():
+            emotion_menu.add_command(label=label, command=lambda value=emotion_id: self.mark_owner_emotion(value))
+        self.menu.add_cascade(label="\u6807\u8bb0\u60c5\u7eea", menu=emotion_menu)
+        self.menu.add_command(label="\u540d\u5b57/\u504f\u597d/\u6027\u683c", command=self.open_preferences)
+        self.menu.add_command(label="\u6210\u5c31\u6253\u5361", command=self.open_achievements)
+        self.menu.add_checkbutton(label="\u52ff\u6270\u6a21\u5f0f", variable=self.do_not_disturb_var, command=self.toggle_do_not_disturb)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
         self.menu.add_command(label="\u4eca\u65e5\u770b\u677f", command=self.open_stats)
         self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
@@ -604,7 +766,8 @@ class DesktopPet:
         self.menu.tk_popup(event.x_root, event.y_root)
 
     def on_hover(self, _event: tk.Event) -> None:
-        self.say("\u6478\u6478\u5934\uff1f")
+        if not self.do_not_disturb_var.get():
+            self.say("\u6478\u6478\u5934\uff1f")
         if self.panel_visible:
             self.open_panel()
 
@@ -638,10 +801,10 @@ class DesktopPet:
         now = time.time()
         if now < self.next_action_at:
             return
-        if self.current_action or self.drop_active or self.is_sleeping or self.pomodoro_running or self.message_until > 0:
+        if self.do_not_disturb_var.get() or self.current_action or self.drop_active or self.is_sleeping or self.pomodoro_running or self.message_until > 0:
             self.schedule_next_action(soon=True)
             return
-        action_id = random.choice(["teacher", "plant", "home", "study", "drink", "paint", "doctor", "chef"])
+        action_id = random.choice(["teacher", "plant", "home", "study", "drink", "paint", "doctor", "chef", "stretch"])
         self.set_action(action_id, duration=random.randint(520, 900))
         self.schedule_next_action()
 
@@ -672,6 +835,107 @@ class DesktopPet:
             font=("Microsoft YaHei UI", 9),
             cursor="hand2",
         )
+
+    def pet_name(self) -> str:
+        return str(self.prefs.get("pet_name", "\u5c0f\u722a") or "\u5c0f\u722a")
+
+    def toggle_do_not_disturb(self) -> None:
+        enabled = bool(self.do_not_disturb_var.get())
+        self.prefs.data["do_not_disturb"] = enabled
+        self.prefs.save()
+        self.say("\u6211\u4f1a\u5b89\u9759\u4e00\u70b9\u3002" if enabled else "\u52ff\u6270\u5173\u95ed\uff0c\u6211\u7ee7\u7eed\u966a\u4f60\u3002", 180)
+
+    def mark_owner_emotion(self, emotion_id: str) -> None:
+        label, mood, message = OWNER_EMOTIONS.get(emotion_id, OWNER_EMOTIONS["focused"])
+        self.companion_state.data["owner_emotion"] = emotion_id
+        self.companion_state.data["owner_emotion_date"] = today_key()
+        self.companion_state.data.setdefault("checkins", {})[today_key()] = label
+        self.companion_state.save()
+        if emotion_id in {"tired", "anxious", "low"}:
+            self.set_action("doctor", duration=520)
+        elif emotion_id == "focused":
+            self.set_action("study", duration=520)
+        self.set_mood(mood, message, 240)
+        self.companion_state.unlock("first_emotion", "\u7b2c\u4e00\u6b21\u60c5\u7eea\u6253\u5361")
+
+    def check_weather_async(self) -> None:
+        self.say("\u6211\u53bb\u770b\u4e00\u773c\u5929\u6c14\u3002", 160)
+
+        def worker() -> None:
+            result = self.weather.fetch()
+            self.companion_state.unlock("first_weather", "\u7b2c\u4e00\u6b21\u67e5\u5929\u6c14")
+            self.root.after(0, lambda: self.set_mood("curious", result, 360))
+            self.root.after(0, lambda: self.speak(result))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def open_preferences(self) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("\u540d\u5b57/\u504f\u597d/\u6027\u683c")
+        win.geometry("540x430")
+        win.attributes("-topmost", True)
+        frame = self.make_glass_frame(win)
+        tk.Label(frame, text="\u540d\u5b57\u3001\u504f\u597d\u548c\u6027\u683c", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(frame, text="\u8fd9\u4e9b\u53ea\u4fdd\u5b58\u5728\u672c\u673a\uff0cDeepSeek \u804a\u5929\u65f6\u4f1a\u8bfb\u53d6\u3002", bg="#f8fbff", fg="#6b7c8c", wraplength=500, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+        form = tk.Frame(frame, bg="#f8fbff")
+        form.pack(fill="x", padx=16)
+        entries: dict[str, tk.Entry] = {}
+
+        def add_entry(label: str, key: str) -> None:
+            row = tk.Frame(form, bg="#f8fbff")
+            row.pack(fill="x", pady=5)
+            tk.Label(row, text=label, bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 10))
+            entry.insert(0, str(self.prefs.get(key, "")))
+            entry.pack(side="left", fill="x", expand=True, ipady=6)
+            entries[key] = entry
+
+        add_entry("\u840c\u5ba0\u540d\u5b57", "pet_name")
+        add_entry("\u4e3b\u4eba\u79f0\u547c", "owner_name")
+        add_entry("\u5929\u6c14\u57ce\u5e02", "weather_city")
+        add_entry("\u58a8\u8ff9URL", "moji_weather_url")
+        row = tk.Frame(form, bg="#f8fbff")
+        row.pack(fill="x", pady=5)
+        tk.Label(row, text="\u6027\u683c\u5305", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
+        personality_var = tk.StringVar(value=str(self.prefs.get("personality", "gentle")))
+        tk.OptionMenu(row, personality_var, *PERSONALITY_PACKS.keys()).pack(side="left", fill="x", expand=True)
+        tk.Label(form, text="\u4e2a\u4eba\u504f\u597d", bg="#f8fbff", fg="#40505f").pack(anchor="w", pady=(8, 3))
+        pref_text = tk.Text(form, height=5, bg="#ffffff", fg="#23313f", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
+        pref_text.insert("1.0", str(self.prefs.get("personal_preferences", "")))
+        pref_text.pack(fill="x")
+
+        def save() -> None:
+            for key, entry in entries.items():
+                self.prefs.data[key] = entry.get().strip()
+            self.prefs.data["personality"] = personality_var.get()
+            self.prefs.data["personal_preferences"] = pref_text.get("1.0", "end").strip()
+            self.prefs.save()
+            self.set_mood("proud", f"\u597d\u7684\uff0c\u4ee5\u540e\u6211\u5c31\u53eb{self.pet_name()}\u3002", 220)
+
+        bottom = tk.Frame(frame, bg="#f8fbff")
+        bottom.pack(fill="x", padx=16, pady=14)
+        self.glass_button(bottom, "\u4fdd\u5b58", save, 8).pack(side="left")
+        self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
+
+    def open_achievements(self) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("\u6210\u5c31\u6253\u5361")
+        win.geometry("420x320")
+        win.attributes("-topmost", True)
+        frame = self.make_glass_frame(win)
+        tk.Label(frame, text="\u6210\u5c31\u6253\u5361", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        achievements = self.companion_state.data.get("achievements", {})
+        checkins = self.companion_state.data.get("checkins", {})
+        lines = [f"\u60c5\u7eea\u6253\u5361\uff1a{len(checkins)} \u5929", f"\u5df2\u89e3\u9501\u6210\u5c31\uff1a{len(achievements)} \u4e2a", ""]
+        if achievements:
+            lines.extend(f"- {item.get('title')}  {item.get('date')}" for item in achievements.values())
+        else:
+            lines.append("- \u8fd8\u6ca1\u6709\u6210\u5c31\uff0c\u5148\u6807\u8bb0\u4e00\u6b21\u60c5\u7eea\u5427\u3002")
+        text = tk.Text(frame, bg="#fdfefe", fg="#354251", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
+        text.pack(fill="both", expand=True, padx=16, pady=12)
+        text.insert("end", "\n".join(lines))
+        text.configure(state="disabled")
+        self.glass_button(frame, "\u5173\u95ed", win.destroy, 8).pack(anchor="e", padx=16, pady=(0, 12))
 
     def toggle_panel(self) -> None:
         self.panel_visible = not self.panel_visible
@@ -982,6 +1246,7 @@ class DesktopPet:
 
         if self.pomodoro_mode == "focus":
             self.pomodoro_sessions += 1
+            self.companion_state.unlock("first_pomodoro", "\u7b2c\u4e00\u4e2a\u756a\u8304\u949f")
             self.pomodoro_mode = "break"
             self.pomodoro_remaining = BREAK_SECONDS
             self.set_mood("proud", "\u4e00\u4e2a\u756a\u8304\u5b8c\u6210\uff01", 220)
@@ -1015,6 +1280,8 @@ class DesktopPet:
             self.root.after(1000, self.activity_loop)
 
     def update_focus_guard(self) -> None:
+        if self.do_not_disturb_var.get():
+            return
         if not self.pomodoro_running or self.pomodoro_mode != "focus":
             return
         now = time.time()
@@ -1063,6 +1330,8 @@ class DesktopPet:
             return
 
         self.active_stretch_seconds += 1
+        if self.do_not_disturb_var.get():
+            return
         if self.active_stretch_seconds >= EYE_REMINDER_SECONDS and now - self.last_eye_reminder >= EYE_REMINDER_SECONDS:
             self.last_eye_reminder = now
             self.set_mood("worried", "\u773c\u775b\u8981\u4f11\u606f\u4e00\u4e0b\u3002", 190)
@@ -1071,6 +1340,7 @@ class DesktopPet:
         if self.active_stretch_seconds >= STAND_REMINDER_SECONDS and now - self.last_stand_reminder >= STAND_REMINDER_SECONDS:
             self.last_stand_reminder = now
             self.active_stretch_seconds = 0
+            self.set_action("stretch", duration=700)
             self.set_mood("worried", "\u8d77\u6765\u6d3b\u52a8\u4e00\u4e0b\u5427\u3002", 210)
             self.speak("\u4f60\u5df2\u7ecf\u8fde\u7eed\u5750\u4e86\u5f88\u4e45\u3002\u8d77\u6765\u559d\u6c34\u3001\u6d3b\u52a8\u4e00\u4e0b\u5427\u3002")
 
@@ -1115,6 +1385,8 @@ class DesktopPet:
             ]
             self.save_tasks()
             done_count = sum(1 for task in self.tasks if task.get("done"))
+            if done_count == 3:
+                self.companion_state.unlock("three_tasks_done", "\u4eca\u65e5\u4e09\u4ef6\u4e8b\u5168\u5b8c\u6210")
             mood = "proud" if done_count else "curious"
             self.set_mood(mood, f"\u4e09\u4ef6\u4e8b\u5df2\u4fdd\u5b58\uff0c\u5b8c\u6210 {done_count}/3\u3002", 200)
             if close:
@@ -1170,6 +1442,9 @@ class DesktopPet:
 
         suggestion = self.dashboard_suggestion(done_count, apps)
         lines.extend(["", "## \u840c\u5ba0\u5efa\u8bae", f"- {suggestion}", ""])
+        smart_review = self.smart_daily_review(apps, windows, done_count, total)
+        if smart_review:
+            lines.extend(["## DeepSeek \u667a\u80fd\u56de\u987e", smart_review, ""])
 
         report_path.write_text("\n".join(lines), encoding="utf-8")
         self.cloud_dirty = True
@@ -1193,6 +1468,22 @@ class DesktopPet:
         bottom.pack(fill="x", padx=10, pady=10)
         tk.Label(bottom, text=str(report_path), bg="#f8fbff", fg="#6b7c8c").pack(side="left")
         self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
+
+    def smart_daily_review(self, apps: list[tuple[str, float]], windows: list[dict], done_count: int, total: float) -> str:
+        if not self.deepseek.is_configured():
+            return ""
+        top_apps = "\n".join(f"- {name}: {format_seconds(seconds)}" for name, seconds in apps[:6]) or "\u6682\u65e0"
+        top_windows = "\n".join(f"- {item.get('process')} {format_seconds(item.get('seconds', 0))}: {item.get('title')}" for item in windows[:5]) or "\u6682\u65e0"
+        tasks = "\n".join(f"- [{'x' if task.get('done') else ' '}] {task.get('text') or '\u672a\u586b\u5199'}" for task in self.tasks[:3])
+        prompt = (
+            "\u8bf7\u751f\u6210\u4e00\u6bb5\u7b80\u77ed\u7684\u6bcf\u65e5\u56de\u987e\uff0c\u5305\u542b\uff1a\u4eca\u5929\u8282\u594f\u3001\u4e00\u4e2a\u5206\u5fc3\u98ce\u9669\u3001\u660e\u5929\u4e00\u4e2a\u6700\u5c0f\u884c\u52a8\u3002"
+            "\u8bed\u6c14\u50cf\u684c\u9762\u840c\u5ba0\uff0c\u6e29\u67d4\u4f46\u5177\u4f53\uff0c\u4e0d\u8d85\u8fc7 120 \u5b57\u3002\n\n"
+            f"\u603b\u65f6\u957f\uff1a{format_seconds(total)}\n\u4e09\u4ef6\u4e8b\uff1a{done_count}/3\n{tasks}\n\n\u5e94\u7528\uff1a\n{top_apps}\n\n\u7a97\u53e3\uff1a\n{top_windows}"
+        )
+        try:
+            return self.deepseek.chat(self.pet_system_prompt(), [{"role": "user", "content": prompt}])
+        except Exception:
+            return ""
 
     def open_cloud_settings(self) -> None:
         win = tk.Toplevel(self.root)
@@ -1536,9 +1827,22 @@ class DesktopPet:
         elif self.current_action == "paint":
             scene = "\u753b\u753b\u521b\u4f5c"
             tone = "\u6709\u60f3\u8c61\u529b\u3001\u8f7b\u76c8\uff0c\u9f13\u52b1\u7528\u6237\u628a\u60f3\u6cd5\u753b\u6210\u4e00\u5c0f\u5757\u3002"
+        elif self.current_action == "stretch":
+            scene = "\u4e45\u5750\u62c9\u4f38"
+            tone = "\u50cf\u966a\u4f34\u4f38\u5c55\u7684\u5c0f\u6559\u7ec3\uff0c\u8f7b\u58f0\u63d0\u9192\u653e\u677e\u80a9\u9888\u3001\u773c\u775b\u548c\u624b\u8155\u3002"
+
+        personality = PERSONALITY_PACKS.get(str(self.prefs.get("personality", "gentle")), PERSONALITY_PACKS["gentle"])
+        owner_name = str(self.prefs.get("owner_name", "\u4e3b\u4eba") or "\u4e3b\u4eba")
+        pet_name = self.pet_name()
+        preferences = str(self.prefs.get("personal_preferences", "") or "\u6682\u65e0")
+        emotion_id = str(self.companion_state.data.get("owner_emotion", "") or "")
+        emotion_label = OWNER_EMOTIONS.get(emotion_id, ("", "", ""))[0] or "\u672a\u6807\u8bb0"
 
         return (
-            "\u4f60\u662f\u4e00\u53ea Windows \u684c\u9762\u840c\u5ba0\uff0c\u540d\u5b57\u53eb\u201c\u840c\u5ba0\u201d\uff0c\u6b63\u5728\u966a\u4f34\u7528\u6237\u5de5\u4f5c\u548c\u751f\u6d3b\u3002\n"
+            f"\u4f60\u662f\u4e00\u53ea Windows \u684c\u9762\u840c\u5ba0\uff0c\u540d\u5b57\u53eb\u201c{pet_name}\u201d\uff0c\u6b63\u5728\u966a\u4f34{owner_name}\u5de5\u4f5c\u548c\u751f\u6d3b\u3002\n"
+            f"\u89d2\u8272\u6027\u683c\u5305\uff1a{personality}\u3002\n"
+            f"\u4e3b\u4eba\u5f53\u524d\u60c5\u7eea\uff1a{emotion_label}\u3002\n"
+            f"\u4e3b\u4eba\u504f\u597d\uff1a{preferences}\u3002\n"
             f"\u5f53\u524d\u573a\u666f\uff1a{scene}\u3002\n"
             f"\u8bed\u6c14\uff1a{tone}\n"
             "\u56de\u590d\u8981\u6c42\uff1a\u7528\u7b80\u4f53\u4e2d\u6587\uff0c1-3 \u53e5\u4e3a\u4e3b\uff0c\u4e0d\u8981\u5199\u957f\u7bc7\u5927\u8bba\uff1b\u8981\u6709\u966a\u4f34\u611f\u548c\u5177\u4f53\u5c0f\u5efa\u8bae\uff1b\u4e0d\u8981\u58f0\u79f0\u81ea\u5df1\u662f\u5927\u6a21\u578b\u6216 AI\uff1b\u4e0d\u8981\u7f16\u9020\u5df2\u7ecf\u6267\u884c\u4e86\u7a0b\u5e8f\u529f\u80fd\u3002"
@@ -2000,6 +2304,11 @@ class DesktopPet:
             self.canvas.create_oval(cx - 80, ground - 8, cx + 80, ground + 9, fill="#dff4ff", outline="")
             for x in [cx - 82, cx - 54, cx + 82]:
                 self.canvas.create_oval(x - 4, cy - 24 + math.sin(self.tick / 7 + x) * 3, x + 4, cy - 13, fill="#8ed7ff", outline="")
+        elif action == "stretch":
+            self.canvas.create_oval(cx - 92, ground - 9, cx + 92, ground + 12, fill="#e8f7ff", outline="")
+            self.canvas.create_arc(cx - 80, cy + 44, cx + 80, cy + 94, start=0, extent=180, fill="#b9e6c9", outline=INK, width=2)
+            for offset in [-54, -18, 18, 54]:
+                self.canvas.create_line(cx + offset - 10, cy + 62, cx + offset + 10, cy + 62, fill="#6fcf97", width=2)
         else:
             self.canvas.create_oval(cx - 82, ground - 8, cx + 82, ground + 10, fill="#eee7dc", outline="")
 
@@ -2070,6 +2379,9 @@ class DesktopPet:
             self.canvas.create_line(cx - 12, cy + 31, cx + 12, cy + 31, fill="#e45756", width=4, capstyle=tk.ROUND)
         elif action == "drink":
             self.canvas.create_arc(cx - 46, cy - 15, cx + 46, cy + 78, start=205, extent=130, fill="#e8f7ff", outline=INK, width=2)
+        elif action == "stretch":
+            self.canvas.create_arc(cx - 49, cy - 18, cx + 49, cy + 80, start=200, extent=140, fill="#dff7ec", outline=INK, width=2)
+            self.canvas.create_line(cx - 22, cy + 23, cx + 22, cy + 23, fill="#6fcf97", width=2)
 
     def draw_action_hat(self, cx: float, cy: float, wag: float) -> None:
         action = self.current_action
@@ -2164,6 +2476,13 @@ class DesktopPet:
             self.canvas.create_rectangle(cx - 76, cy + 35, cx - 38, cy + 67, fill="#ffffff", outline=INK, width=2)
             self.canvas.create_line(cx - 57, cy + 43, cx - 57, cy + 59, fill="#e45756", width=3)
             self.canvas.create_line(cx - 65, cy + 51, cx - 49, cy + 51, fill="#e45756", width=3)
+        elif action == "stretch":
+            lift = math.sin(self.tick / 8) * 8
+            self.canvas.create_line(cx - 34, cy + 26, cx - 76, cy - 8 - lift, fill=INK, width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 34, cy + 26, cx + 76, cy - 8 + lift, fill=INK, width=3, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 84, cy - 18 - lift, cx - 68, cy - 2 - lift, fill="#fff8fb", outline=INK, width=2)
+            self.canvas.create_oval(cx + 68, cy - 18 + lift, cx + 84, cy - 2 + lift, fill="#fff8fb", outline=INK, width=2)
+            self.canvas.create_text(cx, cy + 78, text="\u62c9\u4f38", fill="#4c78a8", font=("Microsoft YaHei UI", 7, "bold"))
 
     def draw_sleep_overlay(self, cx: float, cy: float) -> None:
         if not self.is_sleeping:
@@ -2287,7 +2606,7 @@ class DesktopPet:
     def draw_bubble(self, text: str) -> None:
         display = self.fit_text(text, 26)
         self.draw_speech_bubble(18, 8, 242, 52)
-        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 8))
+        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 10))
 
     def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
         fill = "#fffdfb"
