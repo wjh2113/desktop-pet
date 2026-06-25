@@ -61,7 +61,7 @@ SKINS = {
     "cat": "\u732b\u732b",
     "bunny": "\u5c0f\u5154\u5b50",
     "bear": "\u5c0f\u718a",
-    "mochi": "\u5c0f\u56e2\u5b50",
+    "tiger": "\u5c0f\u8001\u864e",
 }
 
 
@@ -989,9 +989,12 @@ class DesktopPet:
         if self.pet_skin == "bear":
             self.canvas.create_oval(cx + 54, cy + 36, cx + 78, cy + 60, fill=self.mood.body, outline="#3d2f37", width=3)
             return
-        if self.pet_skin == "mochi":
-            leaf = [cx + 34, cy - 56, cx + 62, cy - 76 + wag * 0.2, cx + 70, cy - 48, cx + 47, cy - 42]
-            self.canvas.create_polygon(leaf, fill="#78c26d", outline="#3d2f37", width=2, smooth=True)
+        if self.pet_skin == "tiger":
+            tail_lift = self.squash * 8
+            points = [cx + 62, cy + 24, cx + 96, cy + 5 + wag - tail_lift, cx + 92, cy - 27 + wag - tail_lift, cx + 58, cy - 8]
+            self.canvas.create_polygon(points, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
+            for offset in [0, 16, 31]:
+                self.canvas.create_line(cx + 65 + offset * 0.7, cy + 18 - offset + wag - tail_lift, cx + 80 + offset * 0.45, cy + 4 - offset + wag - tail_lift, fill="#3d2f37", width=3, capstyle=tk.ROUND)
             return
 
         tail_lift = self.squash * 8
@@ -1021,9 +1024,11 @@ class DesktopPet:
             self.canvas.create_oval(cx - 50, cy - 54 + ear_squish, cx - 34, cy - 37 + ear_squish, fill="#fff8fb", outline="")
             self.canvas.create_oval(cx + 34, cy - 54 + ear_squish, cx + 50, cy - 37 + ear_squish, fill="#fff8fb", outline="")
             return
-        if self.pet_skin == "mochi":
-            self.canvas.create_oval(cx - 17, cy - 78 + ear_squish, cx + 17, cy - 48 + ear_squish, fill="#fff8fb", outline="#3d2f37", width=2)
-            self.canvas.create_text(cx, cy - 62 + ear_squish, text="\u2661", fill="#ff8fb3", font=("Segoe UI Symbol", 13, "bold"))
+        if self.pet_skin == "tiger":
+            self.canvas.create_oval(cx - 62, cy - 64 + ear_squish, cx - 24, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx + 24, cy - 64 + ear_squish, cx + 62, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx - 50, cy - 54 + ear_squish, cx - 36, cy - 38 + ear_squish, fill="#fff8fb", outline="")
+            self.canvas.create_oval(cx + 36, cy - 54 + ear_squish, cx + 50, cy - 38 + ear_squish, fill="#fff8fb", outline="")
             return
 
         left = [cx - 51, cy - 36, cx - 35, cy - 82 + ear_squish, cx - 8, cy - 41]
@@ -1097,9 +1102,13 @@ class DesktopPet:
         elif self.pet_skin == "bear":
             self.canvas.create_oval(cx - 22, cy + 6 + face_drop, cx + 22, cy + 42 + face_drop, fill="#fff8fb", outline="")
             self.canvas.create_oval(cx - 8, cy + 12 + face_drop, cx + 8, cy + 22 + face_drop, fill="#3d2f37", outline="")
-        elif self.pet_skin == "mochi":
-            self.canvas.create_text(cx - 48, cy - 22 + face_drop, text="\u2726", fill="#ffffff", font=("Segoe UI Symbol", 11, "bold"))
-            self.canvas.create_text(cx + 48, cy - 20 + face_drop, text="\u2726", fill="#ffffff", font=("Segoe UI Symbol", 11, "bold"))
+        elif self.pet_skin == "tiger":
+            self.canvas.create_line(cx - 18, cy - 38 + face_drop, cx - 8, cy - 24 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx, cy - 42 + face_drop, cx, cy - 24 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 18, cy - 38 + face_drop, cx + 8, cy - 24 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            for side in [-1, 1]:
+                self.canvas.create_line(cx + side * 46, cy - 18 + face_drop, cx + side * 63, cy - 26 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 49, cy - 3 + face_drop, cx + side * 66, cy - 7 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
 
     def draw_paws(self, cx: float, cy: float) -> None:
         paw_drop = max(self.squash, 0) * 11
