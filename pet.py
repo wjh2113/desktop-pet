@@ -1636,7 +1636,7 @@ class DesktopPet:
         win = tk.Toplevel(self.root)
         self.chat_window = win
         win.title("\u548c\u684c\u9762\u840c\u5ba0\u5bf9\u8bdd")
-        chat_w, chat_h = 330, 250
+        chat_w, chat_h = 390, 320
         screen_h = self.root.winfo_screenheight()
         chat_x = min(max(10, self.x - 86), self.root.winfo_screenwidth() - chat_w - 10)
         chat_y = self.y + self.height + 10
@@ -1645,7 +1645,7 @@ class DesktopPet:
         win.geometry(f"{chat_w}x{chat_h}+{chat_x}+{chat_y}")
         win.overrideredirect(True)
         win.attributes("-topmost", True)
-        win.attributes("-alpha", 0.88)
+        win.attributes("-alpha", 0.93)
         glass_bg = "#f8fbff"
         glass_edge = "#d9e6f2"
         win.configure(bg=glass_bg)
@@ -1653,12 +1653,12 @@ class DesktopPet:
         frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=glass_edge)
         frame.pack(fill="both", expand=True)
         header = tk.Frame(frame, bg=glass_bg)
-        header.pack(fill="x", padx=12, pady=(9, 4))
-        tk.Label(header, text="\u25cf", bg=glass_bg, fg="#ff8fb3", font=("Segoe UI", 7)).pack(side="left", padx=(0, 5))
-        tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg=glass_bg, fg="#40505f", font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
+        header.pack(fill="x", padx=14, pady=(12, 5))
+        tk.Label(header, text="\u25cf", bg=glass_bg, fg="#ff8fb3", font=("Segoe UI", 8)).pack(side="left", padx=(0, 6))
+        tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg=glass_bg, fg="#23313f", font=("Microsoft YaHei UI", 12, "bold")).pack(side="left")
         provider_label = "DeepSeek" if self.deepseek.is_configured() else "\u672c\u5730\u56de\u590d"
-        tk.Label(header, text=provider_label, bg=glass_bg, fg="#8da0af", font=("Microsoft YaHei UI", 7)).pack(side="left", padx=8)
-        tk.Button(header, text="\u00d7", command=win.destroy, width=2, relief="flat", bd=0, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", cursor="hand2").pack(side="right")
+        tk.Label(header, text=provider_label, bg="#eef6fb", fg="#6c8296", font=("Microsoft YaHei UI", 8), padx=7, pady=2).pack(side="left", padx=8)
+        tk.Button(header, text="\u00d7", command=win.destroy, width=2, relief="flat", bd=0, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", cursor="hand2", font=("Microsoft YaHei UI", 10)).pack(side="right")
         drag_offset = {"x": 0, "y": 0}
 
         def start_window_drag(event: tk.Event) -> None:
@@ -1674,30 +1674,36 @@ class DesktopPet:
         history = tk.Text(
             frame,
             wrap="word",
-            height=6,
-            padx=8,
-            pady=8,
-            bg="#fdfefe",
+            height=8,
+            padx=12,
+            pady=10,
+            bg="#fbfdff",
             fg="#354251",
             relief="flat",
             highlightthickness=1,
             highlightbackground="#e1ebf3",
             font=("Microsoft YaHei UI", 9),
         )
-        history.pack(fill="both", expand=True, padx=12, pady=(0, 7))
-        history.tag_configure("pet", lmargin1=8, lmargin2=8, rmargin=54, spacing1=4, spacing3=5, background="#fff2f7", foreground="#4d3b48")
-        history.tag_configure("you", lmargin1=62, lmargin2=62, rmargin=8, spacing1=4, spacing3=5, background="#edf7ff", foreground="#2d4054")
-        history.tag_configure("system", lmargin1=18, lmargin2=18, rmargin=18, spacing1=4, spacing3=5, background="#f2f6fa", foreground="#6b7c8c")
-        history.tag_configure("name", foreground="#6b7c8c", font=("Microsoft YaHei UI", 8, "bold"))
+        history.pack(fill="both", expand=True, padx=14, pady=(0, 8))
+        history.tag_configure("pet", lmargin1=10, lmargin2=10, rmargin=70, spacing1=5, spacing3=6, background="#fff4f8", foreground="#4d3b48")
+        history.tag_configure("you", lmargin1=86, lmargin2=86, rmargin=10, spacing1=5, spacing3=6, background="#edf7ff", foreground="#2d4054")
+        history.tag_configure("system", lmargin1=24, lmargin2=24, rmargin=24, spacing1=4, spacing3=5, foreground="#6b7c8c")
+        history.tag_configure("name", foreground="#7a8da0", font=("Microsoft YaHei UI", 8, "bold"))
+        history.configure(state="disabled")
 
         input_card = tk.Frame(frame, bg="#ffffff", highlightthickness=1, highlightbackground="#dce8f2")
-        input_card.pack(fill="x", padx=12, pady=(0, 7))
+        input_card.pack(fill="x", padx=14, pady=(0, 6))
         entry = tk.Entry(input_card, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 10))
-        entry.pack(fill="x", padx=9, pady=7)
+        entry.pack(fill="x", padx=11, pady=8)
 
-        buttons = tk.Frame(frame, bg=glass_bg)
-        buttons.pack(fill="x", padx=10, pady=(0, 9))
+        footer = tk.Frame(frame, bg=glass_bg)
+        footer.pack(fill="x", padx=14, pady=(0, 12))
+        status_var = tk.StringVar(value="")
+        tk.Label(footer, textvariable=status_var, bg=glass_bg, fg="#8da0af", font=("Microsoft YaHei UI", 8)).pack(side="left")
+        buttons = tk.Frame(footer, bg=glass_bg)
+        buttons.pack(side="right")
         chat_messages: list[dict] = []
+        send_button: tk.Button | None = None
 
         def add_line(who: str, text: str) -> None:
             tag = "system"
@@ -1732,19 +1738,28 @@ class DesktopPet:
                 self.speak(reply)
                 return
 
-            add_line("\u7cfb\u7edf", "\u6b63\u5728\u8bf7 DeepSeek \u601d\u8003...")
+            status_var.set("\u966a\u4f60\u60f3\u4e00\u4e0b...")
+            if send_button:
+                send_button.configure(state="disabled")
             chat_messages.append({"role": "user", "content": text})
 
             def worker() -> None:
+                def finish_waiting() -> None:
+                    status_var.set("")
+                    if send_button:
+                        send_button.configure(state="normal")
+
                 try:
                     reply = self.deepseek.chat(self.pet_system_prompt(), chat_messages[-8:])
                 except Exception as exc:
                     reply = f"DeepSeek \u8fde\u63a5\u5931\u8d25\uff1a{exc}"
+                    self.root.after(0, finish_waiting)
                     self.root.after(0, lambda: add_line("\u7cfb\u7edf", reply))
                     self.root.after(0, lambda: self.say("\u6211\u8fde\u4e0d\u4e0a DeepSeek\uff0c\u5148\u7528\u672c\u5730\u72b6\u6001\u966a\u4f60\u3002", 220))
                     return
                 chat_messages.append({"role": "assistant", "content": reply})
                 del chat_messages[:-8]
+                self.root.after(0, finish_waiting)
                 self.root.after(0, lambda: add_line("\u840c\u5ba0", reply))
                 self.root.after(0, lambda: self.speak(reply))
 
@@ -1768,7 +1783,8 @@ class DesktopPet:
             threading.Thread(target=worker, daemon=True).start()
 
         button_style = {"relief": "flat", "bd": 0, "bg": "#ffffff", "fg": "#40505f", "activebackground": "#eaf3fb", "font": ("Microsoft YaHei UI", 8), "cursor": "hand2"}
-        tk.Button(buttons, text="\u53d1\u9001", command=send, width=7, **button_style).pack(side="left", padx=2)
+        send_button = tk.Button(buttons, text="\u53d1\u9001", command=send, width=7, **button_style)
+        send_button.pack(side="left", padx=2)
         voice_button = tk.Button(buttons, text="\u8bed\u97f3/\u547d\u4ee4", command=voice_input, width=11, **button_style)
         voice_button.pack(side="left", padx=5)
         tk.Button(buttons, text="\u72b6\u6001", command=lambda: self.speak(self.daily_summary_sentence()), width=7, **button_style).pack(side="left")
