@@ -650,6 +650,29 @@ class DesktopPet:
         self.action_until = 0
         self.set_mood("happy", "\u6536\u5de5\uff0c\u56de\u5230\u65e5\u5e38\u966a\u4f34\u6a21\u5f0f\u3002", 180)
 
+    def make_glass_frame(self, win: tk.Toplevel, alpha: float = 0.94) -> tk.Frame:
+        glass_bg = "#f8fbff"
+        win.attributes("-alpha", alpha)
+        win.configure(bg=glass_bg)
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
+        frame.pack(fill="both", expand=True)
+        return frame
+
+    def glass_button(self, parent: tk.Widget, text: str, command, width: int | None = None) -> tk.Button:
+        return tk.Button(
+            parent,
+            text=text,
+            command=command,
+            width=width or 0,
+            relief="flat",
+            bd=0,
+            bg="#ffffff",
+            fg="#40505f",
+            activebackground="#eaf3fb",
+            font=("Microsoft YaHei UI", 9),
+            cursor="hand2",
+        )
+
     def toggle_panel(self) -> None:
         self.panel_visible = not self.panel_visible
         if self.panel_visible:
@@ -761,22 +784,24 @@ class DesktopPet:
         self.panel_window = win
         win.overrideredirect(True)
         win.attributes("-topmost", True)
-        win.configure(bg="#f7f4ef")
+        win.attributes("-alpha", 0.9)
+        glass_bg = "#f8fbff"
+        win.configure(bg=glass_bg)
         win.geometry(f"250x156+{self.x + self.width + 12}+{max(20, self.y)}")
 
-        frame = tk.Frame(win, bg="#f7f4ef", highlightthickness=1, highlightbackground="#d8d1c7")
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
         frame.pack(fill="both", expand=True)
-        self.panel_title = tk.Label(frame, text="\u840c\u5ba0\u5c0f\u9762\u677f", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 11, "bold"))
+        self.panel_title = tk.Label(frame, text="\u840c\u5ba0\u5c0f\u9762\u677f", bg=glass_bg, fg="#23313f", font=("Microsoft YaHei UI", 11, "bold"))
         self.panel_title.pack(anchor="w", padx=10, pady=(8, 2))
-        self.panel_status = tk.Label(frame, text="", bg="#f7f4ef", fg="#5d544a", justify="left", font=("Microsoft YaHei UI", 9))
+        self.panel_status = tk.Label(frame, text="", bg=glass_bg, fg="#6b7c8c", justify="left", font=("Microsoft YaHei UI", 9))
         self.panel_status.pack(anchor="w", padx=10)
-        buttons = tk.Frame(frame, bg="#f7f4ef")
+        buttons = tk.Frame(frame, bg=glass_bg)
         buttons.pack(fill="x", padx=8, pady=(8, 6))
-        tk.Button(buttons, text="\u756a\u8304", command=self.start_pomodoro).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u4efb\u52a1", command=self.open_tasks).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u770b\u677f", command=self.open_stats).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u5bf9\u8bdd", command=self.open_chat).pack(side="left", padx=2)
-        tk.Button(frame, text="\u5173\u95ed\u5c0f\u9762\u677f", command=self.toggle_panel).pack(anchor="e", padx=8, pady=(0, 8))
+        self.glass_button(buttons, "\u756a\u8304", self.start_pomodoro, 5).pack(side="left", padx=2)
+        self.glass_button(buttons, "\u4efb\u52a1", self.open_tasks, 5).pack(side="left", padx=2)
+        self.glass_button(buttons, "\u770b\u677f", self.open_stats, 5).pack(side="left", padx=2)
+        self.glass_button(buttons, "\u5bf9\u8bdd", self.open_chat, 5).pack(side="left", padx=2)
+        self.glass_button(frame, "\u5173\u95ed\u5c0f\u9762\u677f", self.toggle_panel).pack(anchor="e", padx=8, pady=(0, 8))
         self.refresh_panel()
 
     def refresh_panel(self) -> None:
@@ -1060,25 +1085,25 @@ class DesktopPet:
         win.title("\u4eca\u65e5\u4e09\u4ef6\u4e8b")
         win.geometry("520x300")
         win.attributes("-topmost", True)
-        win.configure(bg="#f7f4ef")
+        frame = self.make_glass_frame(win)
 
-        tk.Label(win, text="\u4eca\u65e5\u4e09\u4ef6\u4e8b", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 17, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
-        tk.Label(win, text="\u628a\u4eca\u5929\u6700\u91cd\u8981\u7684\u4e09\u4ef6\u4e8b\u653e\u5728\u8fd9\u91cc\uff0c\u840c\u5ba0\u4f1a\u5728\u756a\u8304\u949f\u540e\u5e2e\u4f60\u590d\u76d8\u3002", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
+        tk.Label(frame, text="\u4eca\u65e5\u4e09\u4ef6\u4e8b", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 17, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
+        tk.Label(frame, text="\u628a\u4eca\u5929\u6700\u91cd\u8981\u7684\u4e09\u4ef6\u4e8b\u653e\u5728\u8fd9\u91cc\uff0c\u840c\u5ba0\u4f1a\u5728\u756a\u8304\u949f\u540e\u5e2e\u4f60\u590d\u76d8\u3002", bg="#f8fbff", fg="#6b7c8c", font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
 
-        rows = tk.Frame(win, bg="#f7f4ef")
+        rows = tk.Frame(frame, bg="#f8fbff")
         rows.pack(fill="both", expand=True, padx=16)
         entries: list[tk.Entry] = []
         done_vars: list[tk.BooleanVar] = []
 
         for index in range(3):
             task = self.tasks[index] if index < len(self.tasks) else {"text": "", "done": False}
-            row = tk.Frame(rows, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+            row = tk.Frame(rows, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
             row.pack(fill="x", pady=5)
             done_var = tk.BooleanVar(value=bool(task.get("done")))
             done_vars.append(done_var)
             tk.Checkbutton(row, variable=done_var, bg="#ffffff", activebackground="#ffffff").pack(side="left", padx=8)
-            tk.Label(row, text=f"{index + 1}.", bg="#ffffff", fg="#6b5844", font=("Segoe UI", 10, "bold")).pack(side="left")
-            entry = tk.Entry(row, relief="flat", font=("Microsoft YaHei UI", 11))
+            tk.Label(row, text=f"{index + 1}.", bg="#ffffff", fg="#6b7c8c", font=("Segoe UI", 10, "bold")).pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 11))
             entry.insert(0, str(task.get("text", "")))
             entry.pack(side="left", fill="x", expand=True, padx=8, pady=10)
             entries.append(entry)
@@ -1095,11 +1120,11 @@ class DesktopPet:
             if close:
                 win.destroy()
 
-        bottom = tk.Frame(win, bg="#f7f4ef")
+        bottom = tk.Frame(frame, bg="#f8fbff")
         bottom.pack(fill="x", padx=16, pady=12)
-        tk.Button(bottom, text="\u4fdd\u5b58", command=lambda: save_and_close(False)).pack(side="left")
-        tk.Button(bottom, text="\u4fdd\u5b58\u5e76\u5173\u95ed", command=lambda: save_and_close(True)).pack(side="left", padx=8)
-        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+        self.glass_button(bottom, "\u4fdd\u5b58", lambda: save_and_close(False), 8).pack(side="left")
+        self.glass_button(bottom, "\u4fdd\u5b58\u5e76\u5173\u95ed", lambda: save_and_close(True), 12).pack(side="left", padx=8)
+        self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
         win.protocol("WM_DELETE_WINDOW", lambda: save_and_close(True))
 
     def generate_report(self) -> Path:
@@ -1159,34 +1184,35 @@ class DesktopPet:
         win.title("\u4eca\u65e5\u603b\u7ed3")
         win.geometry("680x520")
         win.attributes("-topmost", True)
-        text = tk.Text(win, wrap="word", padx=12, pady=12, font=("Microsoft YaHei UI", 10))
+        frame = self.make_glass_frame(win)
+        text = tk.Text(frame, wrap="word", padx=12, pady=12, bg="#fdfefe", fg="#354251", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
         text.pack(fill="both", expand=True)
         text.insert("end", report_path.read_text(encoding="utf-8"))
         text.configure(state="disabled")
-        bottom = tk.Frame(win)
+        bottom = tk.Frame(frame, bg="#f8fbff")
         bottom.pack(fill="x", padx=10, pady=10)
-        tk.Label(bottom, text=str(report_path), fg="#7b7067").pack(side="left")
-        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+        tk.Label(bottom, text=str(report_path), bg="#f8fbff", fg="#6b7c8c").pack(side="left")
+        self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
 
     def open_cloud_settings(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u4e91\u540c\u6b65")
         win.geometry("460x330")
         win.attributes("-topmost", True)
-        win.configure(bg="#f7f4ef")
+        frame = self.make_glass_frame(win)
 
-        tk.Label(win, text="\u4e91\u540c\u6b65\u767b\u5f55", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
-        tk.Label(win, text="\u5728\u591a\u53f0\u7535\u8111\u4f7f\u7528\u540c\u4e00\u4e2a\u4e91\u7aef\u5730\u5740\u548c\u8d26\u53f7\uff0c\u5373\u53ef\u5171\u4eab\u672c\u5730\u6570\u636e\u8bb0\u5f55\u3002", bg="#f7f4ef", fg="#7b7067", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+        tk.Label(frame, text="\u4e91\u540c\u6b65\u767b\u5f55", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(frame, text="\u5728\u591a\u53f0\u7535\u8111\u4f7f\u7528\u540c\u4e00\u4e2a\u4e91\u7aef\u5730\u5740\u548c\u8d26\u53f7\uff0c\u5373\u53ef\u5171\u4eab\u672c\u5730\u6570\u636e\u8bb0\u5f55\u3002", bg="#f8fbff", fg="#6b7c8c", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
 
-        form = tk.Frame(win, bg="#f7f4ef")
+        form = tk.Frame(frame, bg="#f8fbff")
         form.pack(fill="x", padx=16)
         fields: dict[str, tk.Entry] = {}
 
         def add_field(label: str, key: str, value: str = "", show: str | None = None) -> None:
-            row = tk.Frame(form, bg="#f7f4ef")
+            row = tk.Frame(form, bg="#f8fbff")
             row.pack(fill="x", pady=5)
-            tk.Label(row, text=label, bg="#f7f4ef", fg="#4d3b38", width=10, anchor="w").pack(side="left")
-            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#2f2925", show=show or "", font=("Microsoft YaHei UI", 10))
+            tk.Label(row, text=label, bg="#f8fbff", fg="#40505f", width=10, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", show=show or "", font=("Microsoft YaHei UI", 10))
             entry.insert(0, value)
             entry.pack(side="left", fill="x", expand=True, ipady=5)
             fields[key] = entry
@@ -1197,7 +1223,7 @@ class DesktopPet:
         add_field("\u8bbe\u5907\u540d", "device_name", str(self.cloud.config.get("device_name", platform.node() or "Windows PC")))
 
         status_var = tk.StringVar(value=self.cloud_status_text())
-        tk.Label(win, textvariable=status_var, bg="#f7f4ef", fg="#6b5844", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(10, 8))
+        tk.Label(frame, textvariable=status_var, bg="#f8fbff", fg="#6b7c8c", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(10, 8))
 
         def login_and_sync() -> None:
             endpoint = fields["endpoint"].get().strip()
@@ -1224,11 +1250,11 @@ class DesktopPet:
 
             threading.Thread(target=worker, daemon=True).start()
 
-        bottom = tk.Frame(win, bg="#f7f4ef")
+        bottom = tk.Frame(frame, bg="#f8fbff")
         bottom.pack(fill="x", padx=16, pady=12)
-        tk.Button(bottom, text="\u767b\u5f55\u5e76\u540c\u6b65", command=login_and_sync).pack(side="left")
-        tk.Button(bottom, text="\u7acb\u5373\u540c\u6b65", command=lambda: self.sync_cloud_async(manual=True)).pack(side="left", padx=8)
-        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+        self.glass_button(bottom, "\u767b\u5f55\u5e76\u540c\u6b65", login_and_sync, 14).pack(side="left")
+        self.glass_button(bottom, "\u7acb\u5373\u540c\u6b65", lambda: self.sync_cloud_async(manual=True), 10).pack(side="left", padx=8)
+        self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
 
     def cloud_status_text(self) -> str:
         if not self.cloud.is_configured():
@@ -1615,8 +1641,8 @@ class DesktopPet:
         return sum(self.tracker.data.get("apps", {}).values())
 
     def make_stat_card(self, parent: tk.Widget, title: str, value: str, accent: str) -> tk.Canvas:
-        card = tk.Canvas(parent, width=218, height=92, bg="#f7f4ef", highlightthickness=0)
-        card.create_rectangle(4, 4, 214, 88, fill="#ffffff", outline="#d8d1c7", width=1)
+        card = tk.Canvas(parent, width=218, height=92, bg="#f8fbff", highlightthickness=0)
+        card.create_rectangle(4, 4, 214, 88, fill="#ffffff", outline="#e1ebf3", width=1)
         card.create_rectangle(4, 4, 16, 88, fill=accent, outline=accent)
         card.create_text(28, 24, anchor="w", text=title, fill="#5d544a", font=("Microsoft YaHei UI", 10))
         card.create_text(28, 58, anchor="w", text=value, fill="#2f2925", font=("Microsoft YaHei UI", 18, "bold"))
@@ -1708,12 +1734,12 @@ class DesktopPet:
         win.geometry("780x720")
         win.minsize(740, 640)
         win.attributes("-topmost", True)
-        win.configure(bg="#f7f4ef")
+        frame = self.make_glass_frame(win, alpha=0.95)
 
-        header = tk.Frame(win, bg="#f7f4ef")
+        header = tk.Frame(frame, bg="#f8fbff")
         header.pack(fill="x", padx=18, pady=(16, 10))
-        tk.Label(header, text="\u4eca\u65e5\u770b\u677f", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 19, "bold")).pack(anchor="w")
-        tk.Label(header, text=f"\u65f6\u95f4\u7edf\u8ba1\u3001\u4e09\u4ef6\u4e8b\u548c\u4eca\u65e5\u603b\u7ed3\u653e\u5728\u4e00\u8d77    {self.tracker.current_day}", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
+        tk.Label(header, text="\u4eca\u65e5\u770b\u677f", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 19, "bold")).pack(anchor="w")
+        tk.Label(header, text=f"\u65f6\u95f4\u7edf\u8ba1\u3001\u4e09\u4ef6\u4e8b\u548c\u4eca\u65e5\u603b\u7ed3\u653e\u5728\u4e00\u8d77    {self.tracker.current_day}", bg="#f8fbff", fg="#6b7c8c", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
 
         apps = self.tracker.top_apps(6)
         windows = self.tracker.top_windows(6)
@@ -1723,36 +1749,36 @@ class DesktopPet:
         done_count = sum(1 for task in self.tasks if task.get("done"))
         suggestion = self.dashboard_suggestion(done_count, apps)
 
-        cards = tk.Frame(win, bg="#f7f4ef")
+        cards = tk.Frame(frame, bg="#f8fbff")
         cards.pack(fill="x", padx=18, pady=(0, 12))
         self.make_stat_card(cards, "\u603b\u8bb0\u5f55\u65f6\u957f", format_seconds(total_seconds), "#4c78a8").pack(side="left", padx=(0, 12))
         self.make_stat_card(cards, "\u6d89\u53ca\u5e94\u7528", f"{app_count} \u4e2a", "#54a24b").pack(side="left", padx=(0, 12))
         self.make_stat_card(cards, "\u4e09\u4ef6\u4e8b", f"{done_count}/3", "#e45756").pack(side="left")
 
-        chart = tk.Canvas(win, width=736, height=258, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        chart = tk.Canvas(frame, width=736, height=258, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
         chart.pack(fill="x", padx=18, pady=(0, 12))
         self.draw_app_chart(chart, apps)
 
-        insight_row = tk.Frame(win, bg="#f7f4ef")
+        insight_row = tk.Frame(frame, bg="#f8fbff")
         insight_row.pack(fill="x", padx=18, pady=(0, 12))
-        tasks = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        tasks = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
         tasks.pack(side="left", fill="x", expand=True, padx=(0, 12))
         self.draw_task_summary(tasks, done_count)
-        advice = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        advice = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
         advice.pack(side="left", fill="x", expand=True)
         self.draw_advice_card(advice, suggestion, total_seconds)
 
-        ranking = tk.Canvas(win, width=736, height=226, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        ranking = tk.Canvas(frame, width=736, height=226, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
         ranking.pack(fill="both", expand=True, padx=18, pady=(0, 10))
         self.draw_window_ranking(ranking, windows)
 
-        bottom = tk.Frame(win, bg="#f7f4ef")
+        bottom = tk.Frame(frame, bg="#f8fbff")
         bottom.pack(fill="x", padx=18, pady=(0, 14))
-        tk.Label(bottom, text=f"\u5171 {window_count} \u4e2a\u7a97\u53e3\u8bb0\u5f55", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(side="left")
-        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
-        tk.Button(bottom, text="\u5237\u65b0", command=self.open_stats).pack(side="right", padx=6)
-        tk.Button(bottom, text="\u751f\u6210 Markdown \u603b\u7ed3", command=self.generate_report).pack(side="right", padx=6)
-        tk.Button(bottom, text="\u64ad\u62a5\u603b\u7ed3", command=lambda: self.speak(self.daily_summary_sentence())).pack(side="right")
+        tk.Label(bottom, text=f"\u5171 {window_count} \u4e2a\u7a97\u53e3\u8bb0\u5f55", bg="#f8fbff", fg="#6b7c8c", font=("Microsoft YaHei UI", 9)).pack(side="left")
+        self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
+        self.glass_button(bottom, "\u5237\u65b0", self.open_stats, 8).pack(side="right", padx=6)
+        self.glass_button(bottom, "\u751f\u6210 Markdown \u603b\u7ed3", self.generate_report, 18).pack(side="right", padx=6)
+        self.glass_button(bottom, "\u64ad\u62a5\u603b\u7ed3", lambda: self.speak(self.daily_summary_sentence()), 12).pack(side="right")
 
     def maybe_walk(self) -> None:
         if self.drag_start is not None or self.is_sleeping or self.drop_active:
