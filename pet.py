@@ -1308,9 +1308,30 @@ class DesktopPet:
         self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
 
     def draw_bubble(self, text: str) -> None:
-        display = self.fit_text(text, 16)
-        self.draw_round_bubble(18, 8, 242, 54, radius=16, tail_at="bottom", fill="#ffffff")
-        self.canvas.create_text(130, 30, text=display, fill="#2f2925", font=("Microsoft YaHei UI", 12, "bold"))
+        display = self.fit_text(text, 18)
+        self.draw_speech_bubble(16, 7, 244, 56)
+        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 12, "bold"))
+
+    def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
+        fill = "#fffdfb"
+        outline = "#d68fa4"
+        highlight = "#ffffff"
+        shadow = "#ead7d0"
+        radius = 18
+        self.canvas.create_rectangle(x1 + 4, y1 + 4, x2 + 4, y2 + 4, fill=shadow, outline="")
+        self.canvas.create_oval(x1, y1, x1 + radius * 2, y1 + radius * 2, fill=fill, outline=outline, width=2)
+        self.canvas.create_oval(x2 - radius * 2, y1, x2, y1 + radius * 2, fill=fill, outline=outline, width=2)
+        self.canvas.create_oval(x1, y2 - radius * 2, x1 + radius * 2, y2, fill=fill, outline=outline, width=2)
+        self.canvas.create_oval(x2 - radius * 2, y2 - radius * 2, x2, y2, fill=fill, outline=outline, width=2)
+        self.canvas.create_rectangle(x1 + radius, y1, x2 - radius, y2, fill=fill, outline="")
+        self.canvas.create_rectangle(x1, y1 + radius, x2, y2 - radius, fill=fill, outline="")
+        self.canvas.create_line(x1 + radius, y1, x2 - radius, y1, fill=outline, width=2)
+        self.canvas.create_line(x1 + radius, y2, x2 - radius, y2, fill=outline, width=2)
+        self.canvas.create_line(x1, y1 + radius, x1, y2 - radius, fill=outline, width=2)
+        self.canvas.create_line(x2, y1 + radius, x2, y2 - radius, fill=outline, width=2)
+        self.canvas.create_polygon([116, y2 - 3, 130, y2 + 15, 145, y2 - 3], fill=fill, outline=outline, width=2)
+        self.canvas.create_arc(x1 + 17, y1 + 9, x2 - 17, y2 - 8, start=22, extent=136, style=tk.ARC, outline=highlight, width=2)
+        self.canvas.create_oval(x1 + 15, y1 + 11, x1 + 20, y1 + 16, fill=highlight, outline="")
 
     def animate(self) -> None:
         self.tick += 1
