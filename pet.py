@@ -72,6 +72,14 @@ OWNER_EMOTIONS = {
     "low": ("\u4f4e\u843d", "worried", "\u4eca\u5929\u5141\u8bb8\u6162\u4e00\u70b9\uff0c\u6211\u5728\u8fd9\u91cc\u966a\u4f60\u3002"),
     "focused": ("\u60f3\u4e13\u6ce8", "focused", "\u597d\uff0c\u6211\u4f1a\u5c11\u8bf4\u4e00\u70b9\uff0c\u966a\u4f60\u628a\u6ce8\u610f\u529b\u6536\u56de\u6765\u3002"),
 }
+AUTO_WEATHER_CITY = "\u81ea\u52a8\u5b9a\u4f4d"
+CHINA_WEATHER_CITIES = [
+    "\u5317\u4eac", "\u4e0a\u6d77", "\u5e7f\u5dde", "\u6df1\u5733", "\u676d\u5dde", "\u5357\u4eac", "\u82cf\u5dde", "\u6210\u90fd", "\u91cd\u5e86", "\u5929\u6d25",
+    "\u6b66\u6c49", "\u897f\u5b89", "\u957f\u6c99", "\u90d1\u5dde", "\u9752\u5c9b", "\u6d4e\u5357", "\u53a6\u95e8", "\u798f\u5dde", "\u5408\u80a5", "\u5357\u660c",
+    "\u5b81\u6ce2", "\u65e0\u9521", "\u4f5b\u5c71", "\u4e1c\u839e", "\u73e0\u6d77", "\u60e0\u5dde", "\u4e2d\u5c71", "\u6c88\u9633", "\u5927\u8fde", "\u957f\u6625",
+    "\u54c8\u5c14\u6ee8", "\u77f3\u5bb6\u5e84", "\u592a\u539f", "\u547c\u548c\u6d69\u7279", "\u5357\u5b81", "\u6d77\u53e3", "\u4e09\u4e9a", "\u6606\u660e", "\u8d35\u9633", "\u62c9\u8428",
+    "\u5170\u5dde", "\u897f\u5b81", "\u94f6\u5ddd", "\u4e4c\u9c81\u6728\u9f50", "\u9999\u6e2f", "\u6fb3\u95e8", "\u53f0\u5317",
+]
 
 
 @dataclass
@@ -571,7 +579,7 @@ class WeatherClient:
     def fetch(self) -> str:
         city = self.locate_city()
         if not city:
-            return "\u6211\u8fd8\u6ca1\u627e\u5230\u5f53\u524d\u57ce\u5e02\uff0c\u53ef\u4ee5\u5728\u504f\u597d\u91cc\u624b\u52a8\u586b\u4e00\u4e2a\u57ce\u5e02\u3002"
+            return "\u6211\u8fd8\u6ca1\u627e\u5230\u5f53\u524d\u57ce\u5e02\uff0c\u53ef\u4ee5\u5728\u504f\u597d\u91cc\u9009\u4e00\u4e2a\u4e2d\u56fd\u57ce\u5e02\u3002"
         url = f"https://wttr.in/{urllib.parse.quote(city)}?format=j1&lang=zh"
         request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "desktop-pet/1.0"})
         try:
@@ -912,7 +920,14 @@ class DesktopPet:
 
         add_entry("\u840c\u5ba0\u540d\u5b57", "pet_name")
         add_entry("\u4e3b\u4eba\u79f0\u547c", "owner_name")
-        add_entry("\u5929\u6c14\u57ce\u5e02", "weather_city")
+        row = tk.Frame(form, bg="#f8fbff")
+        row.pack(fill="x", pady=5)
+        tk.Label(row, text="\u5929\u6c14\u57ce\u5e02", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
+        saved_city = str(self.prefs.get("weather_city", "") or "")
+        city_var = tk.StringVar(value=saved_city if saved_city in CHINA_WEATHER_CITIES else AUTO_WEATHER_CITY)
+        city_menu = tk.OptionMenu(row, city_var, AUTO_WEATHER_CITY, *CHINA_WEATHER_CITIES)
+        city_menu.configure(bg="#ffffff", fg="#23313f", activebackground="#eaf3fb", relief="flat", bd=0, highlightthickness=1, highlightbackground="#e1ebf3")
+        city_menu.pack(side="left", fill="x", expand=True)
         row = tk.Frame(form, bg="#f8fbff")
         row.pack(fill="x", pady=5)
         tk.Label(row, text="\u6027\u683c\u5305", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
@@ -926,6 +941,8 @@ class DesktopPet:
         def save() -> None:
             for key, entry in entries.items():
                 self.prefs.data[key] = entry.get().strip()
+            selected_city = city_var.get().strip()
+            self.prefs.data["weather_city"] = "" if selected_city == AUTO_WEATHER_CITY else selected_city
             self.prefs.data["personality"] = personality_var.get()
             self.prefs.data["personal_preferences"] = pref_text.get("1.0", "end").strip()
             self.prefs.save()
