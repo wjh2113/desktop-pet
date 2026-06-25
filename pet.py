@@ -57,6 +57,12 @@ MOODS = [
     Mood("excited", "#ffc6ff", "#e879f9", "\u54c7\uff0c\u51b2\u8d77\u6765\u4e86\uff01", "excited"),
 ]
 MOOD_BY_NAME = {mood.name: mood for mood in MOODS}
+SKINS = {
+    "cat": "\u732b\u732b",
+    "bunny": "\u5c0f\u5154\u5b50",
+    "bear": "\u5c0f\u718a",
+    "mochi": "\u5c0f\u56e2\u5b50",
+}
 
 
 def today_key() -> str:
@@ -220,6 +226,7 @@ class DesktopPet:
 
         self.tick = 0
         self.mood = random.choice(MOODS)
+        self.pet_skin = "cat"
         self.message = self.mood.message
         self.message_until = 180
         self.mood_changed_at = time.time()
@@ -255,6 +262,10 @@ class DesktopPet:
         self.menu.add_command(label="\u73a9\u4e00\u4f1a\u513f", command=self.play)
         self.menu.add_command(label="Q\u5f39\u4e0b\u843d", command=self.drop_from_top)
         self.menu.add_command(label="\u7761\u4e00\u4f1a\u513f", command=self.nap)
+        skin_menu = tk.Menu(self.menu, tearoff=0)
+        for skin_id, skin_name in SKINS.items():
+            skin_menu.add_command(label=skin_name, command=lambda value=skin_id: self.set_skin(value))
+        self.menu.add_cascade(label="\u5207\u6362\u5f62\u8c61", menu=skin_menu)
         self.menu.add_separator()
         self.menu.add_command(label="\u5f00\u59cb\u756a\u8304\u949f", command=self.start_pomodoro)
         self.menu.add_command(label="\u6682\u505c\u756a\u8304\u949f", command=self.pause_pomodoro)
@@ -310,6 +321,10 @@ class DesktopPet:
         self.is_sleeping = self.mood.name == "sleepy"
         self.mood_changed_at = time.time()
         self.say(message or self.mood.message, duration)
+
+    def set_skin(self, skin: str) -> None:
+        self.pet_skin = skin if skin in SKINS else "cat"
+        self.set_mood("excited", f"\u6362\u6210{SKINS[self.pet_skin]}\u5566\uff01", 190)
 
     def speak(self, text: str) -> None:
         self.say(text, 240)
@@ -968,6 +983,17 @@ class DesktopPet:
         self.canvas.create_oval(cx - 68 * width_boost, cy + 66, cx + 68 * width_boost, cy + 88, fill="#000000", outline="", stipple="gray50")
 
     def draw_tail(self, cx: float, cy: float, wag: float) -> None:
+        if self.pet_skin == "bunny":
+            self.canvas.create_oval(cx + 50, cy + 33 + wag * 0.2, cx + 82, cy + 64 + wag * 0.2, fill="#ffffff", outline="#3d2f37", width=3)
+            return
+        if self.pet_skin == "bear":
+            self.canvas.create_oval(cx + 54, cy + 36, cx + 78, cy + 60, fill=self.mood.body, outline="#3d2f37", width=3)
+            return
+        if self.pet_skin == "mochi":
+            leaf = [cx + 34, cy - 56, cx + 62, cy - 76 + wag * 0.2, cx + 70, cy - 48, cx + 47, cy - 42]
+            self.canvas.create_polygon(leaf, fill="#78c26d", outline="#3d2f37", width=2, smooth=True)
+            return
+
         tail_lift = self.squash * 8
         points = [cx + 62, cy + 22, cx + 95, cy - 2 + wag - tail_lift, cx + 82, cy - 36 + wag - tail_lift, cx + 54, cy - 12]
         self.canvas.create_polygon(points, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
@@ -983,6 +1009,23 @@ class DesktopPet:
 
     def draw_ears(self, cx: float, cy: float) -> None:
         ear_squish = max(self.squash, 0) * 12
+        if self.pet_skin == "bunny":
+            self.canvas.create_oval(cx - 55, cy - 112 + ear_squish, cx - 22, cy - 22, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx + 22, cy - 112 + ear_squish, cx + 55, cy - 22, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx - 46, cy - 96 + ear_squish, cx - 31, cy - 34, fill="#fff8fb", outline="")
+            self.canvas.create_oval(cx + 31, cy - 96 + ear_squish, cx + 46, cy - 34, fill="#fff8fb", outline="")
+            return
+        if self.pet_skin == "bear":
+            self.canvas.create_oval(cx - 62, cy - 65 + ear_squish, cx - 22, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx + 22, cy - 65 + ear_squish, cx + 62, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx - 50, cy - 54 + ear_squish, cx - 34, cy - 37 + ear_squish, fill="#fff8fb", outline="")
+            self.canvas.create_oval(cx + 34, cy - 54 + ear_squish, cx + 50, cy - 37 + ear_squish, fill="#fff8fb", outline="")
+            return
+        if self.pet_skin == "mochi":
+            self.canvas.create_oval(cx - 17, cy - 78 + ear_squish, cx + 17, cy - 48 + ear_squish, fill="#fff8fb", outline="#3d2f37", width=2)
+            self.canvas.create_text(cx, cy - 62 + ear_squish, text="\u2661", fill="#ff8fb3", font=("Segoe UI Symbol", 13, "bold"))
+            return
+
         left = [cx - 51, cy - 36, cx - 35, cy - 82 + ear_squish, cx - 8, cy - 41]
         right = [cx + 51, cy - 36, cx + 35, cy - 82 + ear_squish, cx + 8, cy - 41]
         self.canvas.create_polygon(left, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
@@ -1040,6 +1083,23 @@ class DesktopPet:
             self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
         self.canvas.create_oval(cx - 52, cy + 14 + face_drop, cx - 32, cy + 29 + face_drop, fill=self.mood.cheek, outline="")
         self.canvas.create_oval(cx + 32, cy + 14 + face_drop, cx + 52, cy + 29 + face_drop, fill=self.mood.cheek, outline="")
+        self.draw_skin_marks(cx, cy, face_drop)
+
+    def draw_skin_marks(self, cx: float, cy: float, face_drop: float) -> None:
+        if self.pet_skin == "cat":
+            for side in [-1, 1]:
+                self.canvas.create_line(cx + side * 42, cy + 2 + face_drop, cx + side * 62, cy - 2 + face_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 42, cy + 10 + face_drop, cx + side * 64, cy + 11 + face_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 42, cy + 18 + face_drop, cx + side * 60, cy + 24 + face_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
+        elif self.pet_skin == "bunny":
+            self.canvas.create_oval(cx - 62, cy + 26 + face_drop, cx - 50, cy + 39 + face_drop, fill="#ffffff", outline="")
+            self.canvas.create_oval(cx + 50, cy + 26 + face_drop, cx + 62, cy + 39 + face_drop, fill="#ffffff", outline="")
+        elif self.pet_skin == "bear":
+            self.canvas.create_oval(cx - 22, cy + 6 + face_drop, cx + 22, cy + 42 + face_drop, fill="#fff8fb", outline="")
+            self.canvas.create_oval(cx - 8, cy + 12 + face_drop, cx + 8, cy + 22 + face_drop, fill="#3d2f37", outline="")
+        elif self.pet_skin == "mochi":
+            self.canvas.create_text(cx - 48, cy - 22 + face_drop, text="\u2726", fill="#ffffff", font=("Segoe UI Symbol", 11, "bold"))
+            self.canvas.create_text(cx + 48, cy - 20 + face_drop, text="\u2726", fill="#ffffff", font=("Segoe UI Symbol", 11, "bold"))
 
     def draw_paws(self, cx: float, cy: float) -> None:
         paw_drop = max(self.squash, 0) * 11
