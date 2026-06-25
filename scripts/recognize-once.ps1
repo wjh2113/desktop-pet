@@ -1,40 +1,59 @@
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 
-Add-Type -AssemblyName System.Speech
+try {
+    Add-Type -AssemblyName System.Speech
+}
+catch {
+    [Console]::Error.WriteLine("SYSTEM_SPEECH_UNAVAILABLE")
+    exit 4
+}
+
+$installed = [System.Speech.Recognition.SpeechRecognitionEngine]::InstalledRecognizers()
+if ($null -eq $installed -or $installed.Count -eq 0) {
+    [Console]::Error.WriteLine("NO_RECOGNIZER")
+    exit 3
+}
 
 $recognizerInfo = $null
-$installed = [System.Speech.Recognition.SpeechRecognitionEngine]::InstalledRecognizers()
-
 foreach ($info in $installed) {
-    if ($info.Culture.Name -eq "zh-CN" -or $info.Culture.Name -eq "zh-Hans") {
+    if ($info.Culture.Name -in @("zh-CN", "zh-Hans", "zh")) {
         $recognizerInfo = $info
         break
     }
 }
 
-if ($null -eq $recognizerInfo -and $installed.Count -gt 0) {
+if ($null -eq $recognizerInfo) {
     $recognizerInfo = $installed[0]
 }
 
-if ($null -eq $recognizerInfo) {
-    Write-Error "没有找到可用的 Windows 语音识别器。"
-    exit 3
-}
-
-$recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine($recognizerInfo)
-$grammar = New-Object System.Speech.Recognition.DictationGrammar
-$recognizer.LoadGrammar($grammar)
-$recognizer.SetInputToDefaultAudioDevice()
-
+$recognizer = $null
 try {
-    $result = $recognizer.Recognize([TimeSpan]::FromSeconds(7))
+    try {
+        $recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine($recognizerInfo)
+    }
+    catch {
+        $recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine
+    }
+    $grammar = New-Object System.Speech.Recognition.DictationGrammar
+    $recognizer.LoadGrammar($grammar)
+    $recognizer.SetInputToDefaultAudioDevice()
+
+    $result = $recognizer.Recognize([TimeSpan]::FromSeconds(10))
     if ($null -eq $result -or [string]::IsNullOrWhiteSpace($result.Text)) {
-        Write-Error "没有听清楚。"
+        [Console]::Error.WriteLine("NO_SPEECH")
         exit 2
     }
+
     Write-Output $result.Text
 }
+catch {
+    [Console]::Error.WriteLine("RECOGNITION_FAILED: $($_.Exception.Message)")
+    exit 1
+}
 finally {
-    $recognizer.Dispose()
+    if ($null -ne $recognizer) {
+        $recognizer.Dispose()
+    }
 }

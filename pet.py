@@ -138,6 +138,18 @@ CHINA_WEATHER_CITIES = [
     "\u54c8\u5c14\u6ee8", "\u77f3\u5bb6\u5e84", "\u592a\u539f", "\u547c\u548c\u6d69\u7279", "\u5357\u5b81", "\u6d77\u53e3", "\u4e09\u4e9a", "\u6606\u660e", "\u8d35\u9633", "\u62c9\u8428",
     "\u5170\u5dde", "\u897f\u5b81", "\u94f6\u5ddd", "\u4e4c\u9c81\u6728\u9f50", "\u9999\u6e2f", "\u6fb3\u95e8", "\u53f0\u5317",
 ]
+CHINA_WEATHER_QUERY = {
+    "\u5317\u4eac": "Beijing", "\u4e0a\u6d77": "Shanghai", "\u5e7f\u5dde": "Guangzhou", "\u6df1\u5733": "Shenzhen", "\u676d\u5dde": "Hangzhou",
+    "\u5357\u4eac": "Nanjing", "\u82cf\u5dde": "Suzhou", "\u6210\u90fd": "Chengdu", "\u91cd\u5e86": "Chongqing", "\u5929\u6d25": "Tianjin",
+    "\u6b66\u6c49": "Wuhan", "\u897f\u5b89": "Xian", "\u957f\u6c99": "Changsha", "\u90d1\u5dde": "Zhengzhou", "\u9752\u5c9b": "Qingdao",
+    "\u6d4e\u5357": "Jinan", "\u53a6\u95e8": "Xiamen", "\u798f\u5dde": "Fuzhou", "\u5408\u80a5": "Hefei", "\u5357\u660c": "Nanchang",
+    "\u5b81\u6ce2": "Ningbo", "\u65e0\u9521": "Wuxi", "\u4f5b\u5c71": "Foshan", "\u4e1c\u839e": "Dongguan", "\u73e0\u6d77": "Zhuhai",
+    "\u60e0\u5dde": "Huizhou", "\u4e2d\u5c71": "Zhongshan", "\u6c88\u9633": "Shenyang", "\u5927\u8fde": "Dalian", "\u957f\u6625": "Changchun",
+    "\u54c8\u5c14\u6ee8": "Harbin", "\u77f3\u5bb6\u5e84": "Shijiazhuang", "\u592a\u539f": "Taiyuan", "\u547c\u548c\u6d69\u7279": "Hohhot", "\u5357\u5b81": "Nanning",
+    "\u6d77\u53e3": "Haikou", "\u4e09\u4e9a": "Sanya", "\u6606\u660e": "Kunming", "\u8d35\u9633": "Guiyang", "\u62c9\u8428": "Lhasa",
+    "\u5170\u5dde": "Lanzhou", "\u897f\u5b81": "Xining", "\u94f6\u5ddd": "Yinchuan", "\u4e4c\u9c81\u6728\u9f50": "Urumqi", "\u9999\u6e2f": "Hong Kong",
+    "\u6fb3\u95e8": "Macau", "\u53f0\u5317": "Taipei",
+}
 
 
 @dataclass
@@ -639,7 +651,8 @@ class WeatherClient:
         city = self.locate_city()
         if not city:
             return "\u6211\u8fd8\u6ca1\u627e\u5230\u5f53\u524d\u57ce\u5e02\uff0c\u53ef\u4ee5\u5728\u504f\u597d\u91cc\u9009\u4e00\u4e2a\u4e2d\u56fd\u57ce\u5e02\u3002"
-        url = f"https://wttr.in/{urllib.parse.quote(city)}?format=j1&lang=zh"
+        query_city = CHINA_WEATHER_QUERY.get(city, city)
+        url = f"https://wttr.in/{urllib.parse.quote(query_city)}?format=j1&lang=zh"
         request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "desktop-pet/1.0"})
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
@@ -714,6 +727,7 @@ class DesktopPet:
         self.action_until = 0
         self.message = self.mood.message
         self.message_until = 180
+        self.message_kind = "normal"
         self.mood_changed_at = time.time()
         self.drag_start: tuple[int, int] | None = None
         self.walk_dx = random.choice([-1, 1])
@@ -836,9 +850,10 @@ class DesktopPet:
         if self.panel_visible:
             self.open_panel()
 
-    def say(self, text: str, duration: int = 150) -> None:
+    def say(self, text: str, duration: int = 150, kind: str = "normal") -> None:
         self.message = text
         self.message_until = duration
+        self.message_kind = kind
 
     def set_mood(self, name: str, message: str | None = None, duration: int = 180) -> None:
         self.mood = MOOD_BY_NAME.get(name, self.mood)
@@ -958,10 +973,15 @@ class DesktopPet:
         def worker() -> None:
             result = self.weather.fetch()
             self.companion_state.unlock("first_weather", "\u7b2c\u4e00\u6b21\u67e5\u5929\u6c14")
-            self.root.after(0, lambda: self.set_mood("curious", result, 360))
+            self.root.after(0, lambda: self.show_weather_result(result))
             self.root.after(0, lambda: self.speak(result))
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def show_weather_result(self, result: str) -> None:
+        self.mood = MOOD_BY_NAME.get("curious", self.mood)
+        self.mood_changed_at = time.time()
+        self.say(result, 520, kind="weather")
 
     def open_preferences(self) -> None:
         win = tk.Toplevel(self.root)
@@ -1224,13 +1244,28 @@ class DesktopPet:
             capture_output=True,
             text=True,
             encoding="utf-8",
-            timeout=14,
+            errors="replace",
+            timeout=18,
             creationflags=creationflags,
         )
         if completed.returncode != 0:
             error = (completed.stderr or completed.stdout or "\u6ca1\u6709\u542c\u6e05\u695a\u3002").strip()
-            raise RuntimeError(error.splitlines()[-1])
-        return completed.stdout.strip()
+            code = error.splitlines()[-1] if error else ""
+            friendly_errors = {
+                "SYSTEM_SPEECH_UNAVAILABLE": "\u5f53\u524d\u7cfb\u7edf\u4e0d\u53ef\u7528 System.Speech \u8bed\u97f3\u8bc6\u522b\u7ec4\u4ef6\u3002",
+                "NO_RECOGNIZER": "\u6ca1\u6709\u627e\u5230\u53ef\u7528\u7684 Windows \u8bed\u97f3\u8bc6\u522b\u5668\uff0c\u8bf7\u5728 Windows \u8bed\u97f3\u8bbe\u7f6e\u91cc\u5b89\u88c5\u8bed\u97f3\u8bc6\u522b\u8bed\u8a00\u5305\u3002",
+                "NO_SPEECH": "\u6ca1\u6709\u542c\u6e05\u695a\uff0c\u8bf7\u9760\u8fd1\u9ea6\u514b\u98ce\u518d\u8bd5\u4e00\u6b21\u3002",
+            }
+            if code.startswith("RECOGNITION_FAILED:"):
+                detail = code.split(":", 1)[1].strip()
+                if "Access is denied" in detail or "0x80070005" in detail:
+                    raise RuntimeError("\u7cfb\u7edf\u62d2\u7edd\u52a0\u8f7d\u8bed\u97f3\u8bc6\u522b\u8bed\u6cd5\uff0c\u8bf7\u68c0\u67e5 Windows \u8bed\u97f3\u8bc6\u522b\u8bed\u8a00\u5305\u548c\u9ea6\u514b\u98ce\u6743\u9650\u3002")
+                raise RuntimeError(f"\u8bed\u97f3\u8bc6\u522b\u5931\u8d25\uff1a{detail}")
+            raise RuntimeError(friendly_errors.get(code, code or "\u6ca1\u6709\u542c\u6e05\u695a\u3002"))
+        recognized = completed.stdout.strip()
+        if not recognized:
+            raise RuntimeError("\u6ca1\u6709\u542c\u6e05\u695a\uff0c\u8bf7\u9760\u8fd1\u9ea6\u514b\u98ce\u518d\u8bd5\u4e00\u6b21\u3002")
+        return recognized
 
     def play_tone(self, frequency: int, duration_ms: int) -> None:
         def worker() -> None:
@@ -1800,9 +1835,9 @@ class DesktopPet:
             font=("Microsoft YaHei UI", 9),
         )
         history.pack(fill="both", expand=True, padx=14, pady=(0, 8))
-        history.tag_configure("pet", lmargin1=10, lmargin2=10, rmargin=70, spacing1=5, spacing3=6, background="#fff4f8", foreground="#4d3b48")
-        history.tag_configure("you", lmargin1=86, lmargin2=86, rmargin=10, spacing1=5, spacing3=6, background="#edf7ff", foreground="#2d4054")
-        history.tag_configure("system", lmargin1=24, lmargin2=24, rmargin=24, spacing1=4, spacing3=5, foreground=GLASS_MUTED)
+        history.tag_configure("pet", lmargin1=10, lmargin2=10, rmargin=70, spacing1=5, spacing3=6, background="#fff4f8", foreground="#4d3b48", justify="left")
+        history.tag_configure("you", lmargin1=10, lmargin2=10, rmargin=70, spacing1=5, spacing3=6, background="#edf7ff", foreground="#2d4054", justify="left")
+        history.tag_configure("system", lmargin1=18, lmargin2=18, rmargin=18, spacing1=4, spacing3=5, foreground=GLASS_MUTED, justify="left")
         history.tag_configure("name", foreground="#7a8da0", font=("Microsoft YaHei UI", 8, "bold"))
         history.configure(state="disabled")
 
@@ -2345,6 +2380,16 @@ class DesktopPet:
             return text
         return text[: max(1, max_chars - 1)] + "\u2026"
 
+    def wrap_bubble_text(self, text: str, line_chars: int, max_lines: int) -> str:
+        text = " ".join(str(text).split())
+        if not text:
+            return ""
+        lines = [text[index : index + line_chars] for index in range(0, len(text), line_chars)]
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            lines[-1] = self.fit_text(lines[-1], line_chars)
+        return "\n".join(lines)
+
     def draw_round_bubble(
         self,
         x1: float,
@@ -2726,11 +2771,18 @@ class DesktopPet:
         self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
 
     def draw_bubble(self, text: str) -> None:
-        display = self.fit_text(text, 26)
-        self.draw_speech_bubble(18, 8, 242, 52)
-        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 10))
+        if self.message_kind == "weather":
+            display = self.wrap_bubble_text(text, 16, 4)
+            x1, y1, x2, y2 = (78, 18, 252, 92) if self.x < self.root.winfo_screenwidth() / 2 else (8, 18, 182, 92)
+            self.draw_speech_bubble(x1, y1, x2, y2, tail_side="left" if x1 > 40 else "right")
+            self.canvas.create_text(x1 + 15, y1 + 13, anchor="nw", text=display, width=x2 - x1 - 28, fill="#4d3b38", font=("Microsoft YaHei UI", 9), justify="left")
+            return
+        display = self.wrap_bubble_text(text, 15, 3)
+        x1, y1, x2, y2 = (84, 14, 252, 74) if self.x < self.root.winfo_screenwidth() / 2 else (8, 14, 176, 74)
+        self.draw_speech_bubble(x1, y1, x2, y2, tail_side="left" if x1 > 40 else "right")
+        self.canvas.create_text(x1 + 14, y1 + 12, anchor="nw", text=display, width=x2 - x1 - 26, fill="#4d3b38", font=("Microsoft YaHei UI", 9), justify="left")
 
-    def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
+    def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float, tail_side: str = "left") -> None:
         fill = "#fffdfb"
         outline = "#d68fa4"
         highlight = "#ffffff"
@@ -2747,7 +2799,10 @@ class DesktopPet:
         self.canvas.create_line(x1 + radius, y2, x2 - radius, y2, fill=outline, width=1)
         self.canvas.create_line(x1, y1 + radius, x1, y2 - radius, fill=outline, width=1)
         self.canvas.create_line(x2, y1 + radius, x2, y2 - radius, fill=outline, width=1)
-        self.canvas.create_polygon([118, y2 - 2, 130, y2 + 12, 143, y2 - 2], fill=fill, outline=outline, width=1)
+        if tail_side == "right":
+            self.canvas.create_polygon([x2 - 28, y2 - 8, x2 - 2, y2 + 10, x2 - 12, y2 - 18], fill=fill, outline=outline, width=1)
+        else:
+            self.canvas.create_polygon([x1 + 28, y2 - 8, x1 + 2, y2 + 10, x1 + 12, y2 - 18], fill=fill, outline=outline, width=1)
         self.canvas.create_arc(x1 + 17, y1 + 9, x2 - 17, y2 - 8, start=22, extent=136, style=tk.ARC, outline=highlight, width=1)
         self.canvas.create_oval(x1 + 15, y1 + 11, x1 + 20, y1 + 16, fill=highlight, outline="")
 
