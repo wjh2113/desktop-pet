@@ -62,7 +62,8 @@ catch {
 }
 
 $remoteUrl = "https://github.com/$owner/$RepoName.git"
-if (git remote get-url origin 2>$null) {
+$hasOrigin = (git remote) -contains "origin"
+if ($hasOrigin) {
     git remote set-url origin $remoteUrl
 }
 else {
