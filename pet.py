@@ -1193,9 +1193,9 @@ class DesktopPet:
 
     def draw_status(self) -> None:
         label = self.pomodoro_label()
-        display = self.fit_text(label, 16)
+        display = self.fit_text(label, 18)
         self.draw_round_bubble(30, 187, 230, 226, radius=14, tail_at="top", fill="#fffaf0")
-        self.canvas.create_text(130, 207, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 10, "bold"))
+        self.canvas.create_text(130, 207, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 8, "bold"))
 
     def fit_text(self, text: str, max_chars: int) -> str:
         text = " ".join(str(text).split())
@@ -1374,9 +1374,9 @@ class DesktopPet:
         self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
 
     def draw_bubble(self, text: str) -> None:
-        display = self.fit_text(text, 18)
+        display = self.fit_text(text, 20)
         self.draw_speech_bubble(16, 7, 244, 56)
-        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 12, "bold"))
+        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 10, "bold"))
 
     def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
         fill = "#fffdfb"
