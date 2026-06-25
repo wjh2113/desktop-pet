@@ -198,7 +198,7 @@ class DesktopPet:
         self.root.configure(bg=TRANSPARENT)
         self.root.wm_attributes("-transparentcolor", TRANSPARENT)
 
-        self.ui_scale = 0.70
+        self.ui_scale = 0.55
         self.logical_width = 260
         self.logical_height = 230
         self.width = int(self.logical_width * self.ui_scale)
