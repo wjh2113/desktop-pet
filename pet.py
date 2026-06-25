@@ -1126,8 +1126,43 @@ class DesktopPet:
 
     def draw_status(self) -> None:
         label = self.pomodoro_label()
-        self.canvas.create_rectangle(48, 196, 212, 222, fill="#ffffff", outline="#3d2f37", width=2)
-        self.canvas.create_text(130, 209, text=label, fill="#3d2f37", font=("Segoe UI", 10, "bold"))
+        display = self.fit_text(label, 20)
+        self.draw_round_bubble(39, 193, 221, 224, radius=13, tail_at="top", fill="#fffef8")
+        self.canvas.create_text(130, 209, text=display, fill="#2f2925", font=("Microsoft YaHei UI", 10, "bold"))
+
+    def fit_text(self, text: str, max_chars: int) -> str:
+        text = " ".join(str(text).split())
+        if len(text) <= max_chars:
+            return text
+        return text[: max(1, max_chars - 1)] + "\u2026"
+
+    def draw_round_bubble(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        radius: float = 16,
+        tail_at: str | None = None,
+        fill: str = "#ffffff",
+    ) -> None:
+        outline = "#3d2f37"
+        shadow = "#d8d1c7"
+        self.canvas.create_rectangle(x1 + 3, y1 + 3, x2 + 3, y2 + 3, fill=shadow, outline="")
+        self.canvas.create_oval(x1, y1, x1 + radius * 2, y1 + radius * 2, fill=fill, outline=outline, width=2)
+        self.canvas.create_oval(x2 - radius * 2, y1, x2, y1 + radius * 2, fill=fill, outline=outline, width=2)
+        self.canvas.create_oval(x1, y2 - radius * 2, x1 + radius * 2, y2, fill=fill, outline=outline, width=2)
+        self.canvas.create_oval(x2 - radius * 2, y2 - radius * 2, x2, y2, fill=fill, outline=outline, width=2)
+        self.canvas.create_rectangle(x1 + radius, y1, x2 - radius, y2, fill=fill, outline="")
+        self.canvas.create_rectangle(x1, y1 + radius, x2, y2 - radius, fill=fill, outline="")
+        self.canvas.create_line(x1 + radius, y1, x2 - radius, y1, fill=outline, width=2)
+        self.canvas.create_line(x1 + radius, y2, x2 - radius, y2, fill=outline, width=2)
+        self.canvas.create_line(x1, y1 + radius, x1, y2 - radius, fill=outline, width=2)
+        self.canvas.create_line(x2, y1 + radius, x2, y2 - radius, fill=outline, width=2)
+        if tail_at == "bottom":
+            self.canvas.create_polygon([118, y2 - 2, 130, y2 + 15, 143, y2 - 2], fill=fill, outline=outline, width=2)
+        elif tail_at == "top":
+            self.canvas.create_polygon([118, y1 + 2, 130, y1 - 12, 143, y1 + 2], fill=fill, outline=outline, width=2)
 
     def draw_shadow(self, cx: float, cy: float) -> None:
         width_boost = 1 + max(self.squash, 0) * 0.65
@@ -1269,14 +1304,9 @@ class DesktopPet:
         self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
 
     def draw_bubble(self, text: str) -> None:
-        x1, y1, x2, y2 = 28, 10, 232, 50
-        self.canvas.create_oval(x1, y1, x1 + 28, y1 + 28, fill="#ffffff", outline="#3d2f37", width=2)
-        self.canvas.create_oval(x2 - 28, y1, x2, y1 + 28, fill="#ffffff", outline="#3d2f37", width=2)
-        self.canvas.create_rectangle(x1 + 14, y1, x2 - 14, y1 + 28, fill="#ffffff", outline="")
-        self.canvas.create_line(x1 + 14, y1, x2 - 14, y1, fill="#3d2f37", width=2)
-        self.canvas.create_line(x1 + 14, y1 + 28, x2 - 14, y1 + 28, fill="#3d2f37", width=2)
-        self.canvas.create_polygon([116, 38, 128, 58, 141, 38], fill="#ffffff", outline="#3d2f37", width=2)
-        self.canvas.create_text(130, 25, text=text, fill="#3d2f37", font=("Microsoft YaHei UI", 10, "bold"))
+        display = self.fit_text(text, 16)
+        self.draw_round_bubble(18, 8, 242, 54, radius=16, tail_at="bottom", fill="#ffffff")
+        self.canvas.create_text(130, 30, text=display, fill="#2f2925", font=("Microsoft YaHei UI", 12, "bold"))
 
     def animate(self) -> None:
         self.tick += 1
