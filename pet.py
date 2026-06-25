@@ -274,6 +274,7 @@ class DesktopPet:
         self.last_eye_reminder = time.time()
         self.last_stand_reminder = time.time()
         self.last_distraction_reminder = 0.0
+        self.next_proactive_at = time.time() + random.randint(240, 420)
 
         self.menu = tk.Menu(self.root, tearoff=0)
         self.menu.add_command(label="\u6295\u5582", command=self.feed)
@@ -1101,6 +1102,37 @@ class DesktopPet:
         }
         self.set_mood(mood_name, random.choice(idle_lines[mood_name]), 190)
 
+    def schedule_next_proactive(self) -> None:
+        base_min, base_max = (720, 1080) if self.pomodoro_running else (360, 600)
+        self.next_proactive_at = time.time() + random.randint(base_min, base_max)
+
+    def maybe_proactive_interaction(self) -> None:
+        now = time.time()
+        if now < self.next_proactive_at:
+            return
+        if self.drop_active or self.is_sleeping or self.message_until > 0:
+            self.schedule_next_proactive()
+            return
+
+        done_count = sum(1 for task in self.tasks if task.get("done"))
+        if self.pomodoro_running:
+            lines = [
+                "\u4f60\u4e13\u6ce8\u7684\u6837\u5b50\u5f88\u7a33\u3002",
+                "\u6162\u6162\u6765\uff0c\u8fd9\u4e00\u8f6e\u53ea\u8981\u5411\u524d\u4e00\u70b9\u70b9\u3002",
+                "\u6211\u5728\u65c1\u8fb9\u5b88\u7740\uff0c\u4f60\u7ee7\u7eed\u3002",
+            ]
+            self.set_mood("focused", random.choice(lines), 210)
+        else:
+            lines = [
+                "\u4eca\u5929\u5df2\u7ecf\u5b8c\u6210\u4e09\u4ef6\u4e8b\u4e2d\u7684 " + str(done_count) + " \u4ef6\u3002",
+                "\u8981\u4e0d\u8981\u7ed9\u6211\u6362\u4e2a\u5f62\u8c61\uff1f\u6211\u4eca\u5929\u60f3\u5356\u4e2a\u840c\u3002",
+                "\u4f60\u5df2\u7ecf\u505a\u5f97\u6bd4\u521a\u624d\u66f4\u9760\u8fd1\u76ee\u6807\u4e00\u70b9\u4e86\u3002",
+                "\u559d\u4e00\u53e3\u6c34\u5427\uff0c\u6211\u5728\u8fd9\u91cc\u966a\u4f60\u3002",
+                "\u70b9\u6211\u53f3\u952e\uff0c\u6211\u53ef\u4ee5\u5e2e\u4f60\u770b\u4eca\u5929\u7684\u65f6\u95f4\u53bb\u54ea\u4e86\u3002",
+            ]
+            self.set_mood(random.choice(["happy", "curious", "proud"]), random.choice(lines), 230)
+        self.schedule_next_proactive()
+
     def update_drop(self) -> None:
         if not self.drop_active:
             self.squash *= 0.82
@@ -1372,10 +1404,10 @@ class DesktopPet:
         self.update_pomodoro()
         if self.tick % 900 == 0:
             self.change_mood()
-        if self.tick % 420 == 0 and not self.is_sleeping:
-            self.say(random.choice(["\u6211\u5728\u966a\u4f60\u5de5\u4f5c\u3002", "\u8bb0\u5f97\u559d\u6c34\u3002", "\u53cc\u51fb\u6211\u4f1a\u53d8\u5fc3\u60c5\u3002", "\u53f3\u952e\u6709\u83dc\u5355\u54e6\u3002"]))
         if self.tick % 90 == 0:
             self.maybe_shift_mood()
+        if self.tick % 120 == 0:
+            self.maybe_proactive_interaction()
         self.update_drop()
         self.maybe_walk()
         self.draw_pet()
