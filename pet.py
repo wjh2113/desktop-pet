@@ -490,7 +490,6 @@ class PetPreferences:
             "personality": "gentle",
             "personal_preferences": "",
             "weather_city": "",
-            "moji_weather_url": "",
             "do_not_disturb": False,
         }
         if PET_CONFIG_PATH.exists():
@@ -568,18 +567,15 @@ class WeatherClient:
         city = self.locate_city()
         if not city:
             return "\u6211\u8fd8\u6ca1\u627e\u5230\u5f53\u524d\u57ce\u5e02\uff0c\u53ef\u4ee5\u5728\u504f\u597d\u91cc\u624b\u52a8\u586b\u4e00\u4e2a\u57ce\u5e02\u3002"
-        template = str(self.prefs.get("moji_weather_url", "") or "").strip()
-        if not template:
-            template = "https://tianqi.moji.com/api/weather/citysearch?city_name={city}"
-        url = template.format(city=urllib.parse.quote(city), city_raw=city)
-        request = urllib.request.Request(url, headers={"Accept": "application/json,text/plain,*/*", "User-Agent": "desktop-pet/1.0"})
+        url = f"https://wttr.in/{urllib.parse.quote(city)}?format=j1&lang=zh"
+        request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "desktop-pet/1.0"})
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
                 raw = response.read().decode("utf-8", errors="replace")
         except Exception as exc:
             return f"\u6211\u6ca1\u62ff\u5230 {city} \u7684\u5929\u6c14\uff1a{exc}\u3002"
         summary = self.parse_weather(raw)
-        return f"{city}\u5929\u6c14\uff1a{summary}" if summary else f"\u6211\u8fde\u4e0a\u4e86\u5929\u6c14\u63a5\u53e3\uff0c\u4f46\u8fd4\u56de\u683c\u5f0f\u6211\u8fd8\u8bfb\u4e0d\u61c2\u3002\u524d 80 \u5b57\uff1a{raw[:80]}"
+        return f"{city}\u5929\u6c14\uff1a{summary}" if summary else "\u6211\u8fde\u4e0a\u4e86\u5929\u6c14\u63a5\u53e3\uff0c\u4f46\u6ca1\u8bfb\u5230\u6709\u6548\u5929\u6c14\u3002"
 
     def parse_weather(self, raw: str) -> str:
         try:
@@ -587,28 +583,24 @@ class WeatherClient:
         except json.JSONDecodeError:
             text = " ".join(raw.split())
             return text[:90] if text else ""
-        text = json.dumps(data, ensure_ascii=False)
-        parts: list[str] = []
-        for key in ["weather", "condition", "desc", "temperature", "temp", "humidity", "wind", "city_name"]:
-            if key in text:
-                pass
-
-        def collect(obj: object) -> None:
-            if len(parts) >= 5:
-                return
-            if isinstance(obj, dict):
-                for key, value in obj.items():
-                    lowered = str(key).lower()
-                    if lowered in {"weather", "condition", "desc", "temperature", "temp", "humidity", "wind", "city", "city_name"} and not isinstance(value, (dict, list)):
-                        parts.append(f"{key}:{value}")
-                    else:
-                        collect(value)
-            elif isinstance(obj, list):
-                for item in obj[:3]:
-                    collect(item)
-
-        collect(data)
-        return "\uff0c".join(parts[:5])
+        current = (data.get("current_condition") or [{}])[0]
+        weather = (current.get("lang_zh") or current.get("weatherDesc") or [{}])[0].get("value", "")
+        temp = current.get("temp_C", "")
+        feels = current.get("FeelsLikeC", "")
+        humidity = current.get("humidity", "")
+        wind = current.get("windspeedKmph", "")
+        pieces = []
+        if weather:
+            pieces.append(str(weather))
+        if temp:
+            pieces.append(f"\u6e29\u5ea6 {temp}\u2103")
+        if feels:
+            pieces.append(f"\u4f53\u611f {feels}\u2103")
+        if humidity:
+            pieces.append(f"\u6e7f\u5ea6 {humidity}%")
+        if wind:
+            pieces.append(f"\u98ce\u901f {wind}km/h")
+        return "\uff0c".join(pieces)
 
 
 class DesktopPet:
@@ -872,7 +864,7 @@ class DesktopPet:
     def open_preferences(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u540d\u5b57/\u504f\u597d/\u6027\u683c")
-        win.geometry("540x430")
+        win.geometry("540x390")
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
         tk.Label(frame, text="\u540d\u5b57\u3001\u504f\u597d\u548c\u6027\u683c", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
@@ -893,7 +885,6 @@ class DesktopPet:
         add_entry("\u840c\u5ba0\u540d\u5b57", "pet_name")
         add_entry("\u4e3b\u4eba\u79f0\u547c", "owner_name")
         add_entry("\u5929\u6c14\u57ce\u5e02", "weather_city")
-        add_entry("\u58a8\u8ff9URL", "moji_weather_url")
         row = tk.Frame(form, bg="#f8fbff")
         row.pack(fill="x", pady=5)
         tk.Label(row, text="\u6027\u683c\u5305", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
