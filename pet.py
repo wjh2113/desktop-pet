@@ -290,7 +290,6 @@ class DesktopPet:
         self.menu.add_command(label="\u91cd\u7f6e\u756a\u8304\u949f", command=self.reset_pomodoro)
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
-        self.menu.add_command(label="\u8bed\u97f3\u547d\u4ee4", command=self.listen_voice_command)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
         self.menu.add_command(label="\u4eca\u65e5\u65f6\u95f4\u7edf\u8ba1", command=self.open_stats)
         self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
@@ -351,23 +350,6 @@ class DesktopPet:
         self.pet_skin = skin if skin in SKINS else "cat"
         self.set_mood("excited", f"\u6362\u6210{SKINS[self.pet_skin]}\u5566\uff01", 190)
 
-    def listen_voice_command(self) -> None:
-        self.say("\u6211\u5728\u542c\u547d\u4ee4\uff0c\u8bf7\u8bf4\u3002", 210)
-
-        def worker() -> None:
-            try:
-                recognized = self.recognize_speech_once()
-            except Exception as exc:
-                self.root.after(0, lambda: self.set_mood("worried", f"\u6ca1\u542c\u6e05\uff1a{exc}", 180))
-            else:
-                def respond() -> None:
-                    reply = self.handle_command(recognized) or f"\u6211\u542c\u5230\u4e86\uff1a{recognized}\u3002\u4f46\u8fd9\u4e0d\u50cf\u4e00\u4e2a\u53ef\u6267\u884c\u7684\u547d\u4ee4\u3002"
-                    self.speak(reply)
-
-                self.root.after(0, respond)
-
-        threading.Thread(target=worker, daemon=True).start()
-
     def toggle_panel(self) -> None:
         self.panel_visible = not self.panel_visible
         if self.panel_visible:
@@ -399,7 +381,7 @@ class DesktopPet:
         tk.Button(buttons, text="\u756a\u8304", command=self.start_pomodoro).pack(side="left", padx=2)
         tk.Button(buttons, text="\u4efb\u52a1", command=self.open_tasks).pack(side="left", padx=2)
         tk.Button(buttons, text="\u7edf\u8ba1", command=self.open_stats).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u8bed\u97f3", command=self.listen_voice_command).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u5bf9\u8bdd", command=self.open_chat).pack(side="left", padx=2)
         tk.Button(frame, text="\u5173\u95ed\u5c0f\u9762\u677f", command=self.toggle_panel).pack(anchor="e", padx=8, pady=(0, 8))
         self.refresh_panel()
 
@@ -801,7 +783,7 @@ class DesktopPet:
         header = tk.Frame(win, bg="#f7f4ef")
         header.pack(fill="x", padx=14, pady=(14, 8))
         tk.Label(header, text="\u548c\u840c\u5ba0\u5bf9\u8bdd", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
-        tk.Label(header, text="\u53ef\u4ee5\u6253\u5b57\uff0c\u4e5f\u53ef\u4ee5\u70b9\u8bed\u97f3\u8f93\u5165\u8bf4\u4e00\u53e5\u3002", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(2, 0))
+        tk.Label(header, text="\u8bf4\u8bdd\u6216\u6253\u5b57\u90fd\u53ef\u4ee5\uff1a\u95f2\u804a\u548c\u547d\u4ee4\u4f1a\u81ea\u52a8\u533a\u5206\u3002", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(2, 0))
 
         history = tk.Text(
             win,
@@ -858,7 +840,7 @@ class DesktopPet:
 
         def voice_input() -> None:
             voice_button.configure(state="disabled", text="\u6b63\u5728\u542c...")
-            self.say("\u6211\u5728\u542c\uff0c\u8bf7\u8bf4\u8bdd\u3002", 210)
+            self.say("\u6211\u5728\u542c\uff0c\u804a\u5929\u6216\u547d\u4ee4\u90fd\u53ef\u4ee5\u3002", 210)
 
             def worker() -> None:
                 try:
@@ -869,17 +851,17 @@ class DesktopPet:
                 else:
                     self.root.after(0, lambda: handle_user_text(recognized))
                 finally:
-                    self.root.after(0, lambda: voice_button.configure(state="normal", text="\u8bed\u97f3\u8f93\u5165"))
+                    self.root.after(0, lambda: voice_button.configure(state="normal", text="\u8bed\u97f3\u8f93\u5165/\u547d\u4ee4"))
 
             threading.Thread(target=worker, daemon=True).start()
 
         tk.Button(buttons, text="\u53d1\u9001", command=send, width=8).pack(side="left")
-        voice_button = tk.Button(buttons, text="\u8bed\u97f3\u8f93\u5165", command=voice_input, width=10)
+        voice_button = tk.Button(buttons, text="\u8bed\u97f3\u8f93\u5165/\u547d\u4ee4", command=voice_input, width=14)
         voice_button.pack(side="left", padx=6)
         tk.Button(buttons, text="\u64ad\u62a5\u72b6\u6001", command=lambda: self.speak(self.daily_summary_sentence()), width=10).pack(side="left")
         tk.Button(buttons, text="\u5173\u95ed", command=win.destroy, width=8).pack(side="right")
         entry.bind("<Return>", lambda _event: send())
-        add_line("\u840c\u5ba0", "\u6211\u5728\uff0c\u53ef\u4ee5\u6253\u5b57\u6216\u70b9\u51fb\u8bed\u97f3\u8f93\u5165\u8ddf\u6211\u8bf4\u8bdd\u3002\u6211\u4f1a\u7528\u58f0\u97f3\u56de\u4f60\u3002")
+        add_line("\u840c\u5ba0", "\u6211\u5728\uff0c\u53ef\u4ee5\u8ddf\u6211\u804a\u5929\uff0c\u4e5f\u53ef\u4ee5\u8bf4\u201c\u5f00\u59cb\u756a\u8304\u949f\u201d\u201c\u6253\u5f00\u7edf\u8ba1\u201d\u8fd9\u6837\u7684\u547d\u4ee4\u3002")
         entry.focus_set()
 
     def pet_reply(self, text: str) -> str:
