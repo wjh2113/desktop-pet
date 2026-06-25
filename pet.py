@@ -23,9 +23,12 @@ import win32com.client
 TRANSPARENT = "#ff00ff"
 FPS_MS = 33
 DATA_DIR = Path(__file__).with_name("data")
+REPORTS_DIR = Path(__file__).with_name("reports")
 RECOGNIZER_SCRIPT = Path(__file__).with_name("scripts") / "recognize-once.ps1"
 FOCUS_SECONDS = 25 * 60
 BREAK_SECONDS = 5 * 60
+EYE_REMINDER_SECONDS = 20 * 60
+STAND_REMINDER_SECONDS = 45 * 60
 
 
 @dataclass
@@ -231,6 +234,11 @@ class DesktopPet:
         self.last_tracker_save = time.time()
         self.chat_window: tk.Toplevel | None = None
         self.stats_window: tk.Toplevel | None = None
+        self.tasks_window: tk.Toplevel | None = None
+        self.tasks = self.load_tasks()
+        self.active_stretch_seconds = 0
+        self.last_eye_reminder = time.time()
+        self.last_stand_reminder = time.time()
 
         self.menu = tk.Menu(self.root, tearoff=0)
         self.menu.add_command(label="\u6295\u5582", command=self.feed)
@@ -244,6 +252,8 @@ class DesktopPet:
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
         self.menu.add_command(label="\u4eca\u65e5\u65f6\u95f4\u7edf\u8ba1", command=self.open_stats)
+        self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
+        self.menu.add_command(label="\u751f\u6210\u4eca\u65e5\u603b\u7ed3", command=self.generate_report)
         self.menu.add_separator()
         self.menu.add_command(label="\u9000\u51fa", command=self.quit)
 
@@ -456,7 +466,7 @@ class DesktopPet:
             self.pomodoro_sessions += 1
             self.pomodoro_mode = "break"
             self.pomodoro_remaining = BREAK_SECONDS
-            self.speak("\u4e00\u4e2a\u756a\u8304\u5b8c\u6210\uff01\u8d77\u6765\u6d3b\u52a8\u4e94\u5206\u949f\u5427\u3002")
+            self.speak("\u4e00\u4e2a\u756a\u8304\u5b8c\u6210\uff01\u770b\u770b\u4eca\u65e5\u4e09\u4ef6\u4e8b\u63a8\u8fdb\u4e86\u54ea\u4e00\u4ef6\uff0c\u7136\u540e\u8d77\u6765\u6d3b\u52a8\u4e94\u5206\u949f\u5427\u3002")
         else:
             self.pomodoro_mode = "focus"
             self.pomodoro_remaining = FOCUS_SECONDS
@@ -471,12 +481,175 @@ class DesktopPet:
     def activity_loop(self) -> None:
         try:
             self.tracker.sample()
+            self.update_wellbeing_reminders()
             now = time.time()
             if now - self.last_tracker_save > 30:
                 self.tracker.save()
+                self.save_tasks()
                 self.last_tracker_save = now
         finally:
             self.root.after(1000, self.activity_loop)
+
+    def task_path(self) -> Path:
+        DATA_DIR.mkdir(exist_ok=True)
+        return DATA_DIR / f"tasks-{today_key()}.json"
+
+    def load_tasks(self) -> list[dict]:
+        path = self.task_path()
+        if path.exists():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                tasks = data.get("tasks", [])
+                if isinstance(tasks, list):
+                    return tasks[:3]
+            except json.JSONDecodeError:
+                pass
+        return [{"text": "", "done": False} for _ in range(3)]
+
+    def save_tasks(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        tasks = self.tasks[:3]
+        while len(tasks) < 3:
+            tasks.append({"text": "", "done": False})
+        payload = {"date": today_key(), "tasks": tasks}
+        path = self.task_path()
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(path)
+
+    def update_wellbeing_reminders(self) -> None:
+        now = time.time()
+        info = self.tracker.get_active_window()
+        if info.process in {"desktop", "unknown"}:
+            self.active_stretch_seconds = 0
+            return
+
+        self.active_stretch_seconds += 1
+        if self.active_stretch_seconds >= EYE_REMINDER_SECONDS and now - self.last_eye_reminder >= EYE_REMINDER_SECONDS:
+            self.last_eye_reminder = now
+            self.speak("\u770b\u5c4f\u5e55\u4e8c\u5341\u5206\u949f\u5566\uff0c\u770b\u770b\u8fdc\u5904\uff0c\u8ba9\u773c\u775b\u653e\u677e\u4e00\u4e0b\u3002")
+
+        if self.active_stretch_seconds >= STAND_REMINDER_SECONDS and now - self.last_stand_reminder >= STAND_REMINDER_SECONDS:
+            self.last_stand_reminder = now
+            self.active_stretch_seconds = 0
+            self.speak("\u4f60\u5df2\u7ecf\u8fde\u7eed\u5750\u4e86\u5f88\u4e45\u3002\u8d77\u6765\u559d\u6c34\u3001\u6d3b\u52a8\u4e00\u4e0b\u5427\u3002")
+
+    def open_tasks(self) -> None:
+        if self.tasks_window and self.tasks_window.winfo_exists():
+            self.tasks_window.lift()
+            return
+
+        self.tasks = self.load_tasks()
+        win = tk.Toplevel(self.root)
+        self.tasks_window = win
+        win.title("\u4eca\u65e5\u4e09\u4ef6\u4e8b")
+        win.geometry("520x300")
+        win.attributes("-topmost", True)
+        win.configure(bg="#f7f4ef")
+
+        tk.Label(win, text="\u4eca\u65e5\u4e09\u4ef6\u4e8b", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 17, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
+        tk.Label(win, text="\u628a\u4eca\u5929\u6700\u91cd\u8981\u7684\u4e09\u4ef6\u4e8b\u653e\u5728\u8fd9\u91cc\uff0c\u840c\u5ba0\u4f1a\u5728\u756a\u8304\u949f\u540e\u5e2e\u4f60\u590d\u76d8\u3002", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
+
+        rows = tk.Frame(win, bg="#f7f4ef")
+        rows.pack(fill="both", expand=True, padx=16)
+        entries: list[tk.Entry] = []
+        done_vars: list[tk.BooleanVar] = []
+
+        for index in range(3):
+            task = self.tasks[index] if index < len(self.tasks) else {"text": "", "done": False}
+            row = tk.Frame(rows, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+            row.pack(fill="x", pady=5)
+            done_var = tk.BooleanVar(value=bool(task.get("done")))
+            done_vars.append(done_var)
+            tk.Checkbutton(row, variable=done_var, bg="#ffffff", activebackground="#ffffff").pack(side="left", padx=8)
+            tk.Label(row, text=f"{index + 1}.", bg="#ffffff", fg="#6b5844", font=("Segoe UI", 10, "bold")).pack(side="left")
+            entry = tk.Entry(row, relief="flat", font=("Microsoft YaHei UI", 11))
+            entry.insert(0, str(task.get("text", "")))
+            entry.pack(side="left", fill="x", expand=True, padx=8, pady=10)
+            entries.append(entry)
+
+        def save_and_close(close: bool = False) -> None:
+            self.tasks = [
+                {"text": entries[index].get().strip(), "done": bool(done_vars[index].get())}
+                for index in range(3)
+            ]
+            self.save_tasks()
+            done_count = sum(1 for task in self.tasks if task.get("done"))
+            self.say(f"\u4e09\u4ef6\u4e8b\u5df2\u4fdd\u5b58\uff0c\u5b8c\u6210 {done_count}/3\u3002", 200)
+            if close:
+                win.destroy()
+
+        bottom = tk.Frame(win, bg="#f7f4ef")
+        bottom.pack(fill="x", padx=16, pady=12)
+        tk.Button(bottom, text="\u4fdd\u5b58", command=lambda: save_and_close(False)).pack(side="left")
+        tk.Button(bottom, text="\u4fdd\u5b58\u5e76\u5173\u95ed", command=lambda: save_and_close(True)).pack(side="left", padx=8)
+        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+        win.protocol("WM_DELETE_WINDOW", lambda: save_and_close(True))
+
+    def generate_report(self) -> Path:
+        self.tracker.sample()
+        self.tracker.save()
+        self.save_tasks()
+        REPORTS_DIR.mkdir(exist_ok=True)
+        report_path = REPORTS_DIR / f"{today_key()}.md"
+        apps = self.tracker.top_apps(8)
+        windows = self.tracker.top_windows(8)
+        total = self.total_activity_seconds()
+        done_count = sum(1 for task in self.tasks if task.get("done"))
+
+        lines = [
+            f"# \u4eca\u65e5\u603b\u7ed3 - {today_key()}",
+            "",
+            "## \u603b\u89c8",
+            f"- \u8bb0\u5f55\u603b\u65f6\u957f\uff1a{format_seconds(total)}",
+            f"- \u756a\u8304\u949f\u5b8c\u6210\uff1a{self.pomodoro_sessions} \u4e2a",
+            f"- \u4eca\u65e5\u4e09\u4ef6\u4e8b\uff1a{done_count}/3 \u5b8c\u6210",
+            "",
+            "## \u4eca\u65e5\u4e09\u4ef6\u4e8b",
+        ]
+        for index, task in enumerate(self.tasks, start=1):
+            mark = "x" if task.get("done") else " "
+            text = task.get("text") or "\u672a\u586b\u5199"
+            lines.append(f"- [{mark}] {index}. {text}")
+
+        lines.extend(["", "## \u5e94\u7528\u8017\u65f6 Top 8"])
+        if apps:
+            for index, (name, seconds) in enumerate(apps, start=1):
+                lines.append(f"{index}. {name} - {format_seconds(seconds)}")
+        else:
+            lines.append("- \u6682\u65e0\u6570\u636e")
+
+        lines.extend(["", "## \u7a97\u53e3\u660e\u7ec6 Top 8"])
+        if windows:
+            for index, item in enumerate(windows, start=1):
+                title = str(item.get("title", ""))[:90]
+                lines.append(f"{index}. {item.get('process')} - {format_seconds(item.get('seconds', 0))} - {title}")
+        else:
+            lines.append("- \u6682\u65e0\u6570\u636e")
+
+        suggestion = "\u660e\u5929\u5148\u5b8c\u6210\u4eca\u65e5\u4e09\u4ef6\u4e8b\u4e2d\u6700\u96be\u7684\u4e00\u4ef6\uff0c\u518d\u6253\u5f00\u9ad8\u8017\u65f6\u5e94\u7528\u3002"
+        if done_count == 3:
+            suggestion = "\u4eca\u5929\u4e09\u4ef6\u4e8b\u5168\u90e8\u5b8c\u6210\uff0c\u660e\u5929\u53ef\u4ee5\u7ee7\u7eed\u4fdd\u6301\u8fd9\u4e2a\u8282\u594f\u3002"
+        lines.extend(["", "## \u840c\u5ba0\u5efa\u8bae", f"- {suggestion}", ""])
+
+        report_path.write_text("\n".join(lines), encoding="utf-8")
+        self.speak("\u4eca\u65e5\u603b\u7ed3\u5df2\u751f\u6210\u3002")
+        self.open_report_window(report_path)
+        return report_path
+
+    def open_report_window(self, report_path: Path) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("\u4eca\u65e5\u603b\u7ed3")
+        win.geometry("680x520")
+        win.attributes("-topmost", True)
+        text = tk.Text(win, wrap="word", padx=12, pady=12, font=("Microsoft YaHei UI", 10))
+        text.pack(fill="both", expand=True)
+        text.insert("end", report_path.read_text(encoding="utf-8"))
+        text.configure(state="disabled")
+        bottom = tk.Frame(win)
+        bottom.pack(fill="x", padx=10, pady=10)
+        tk.Label(bottom, text=str(report_path), fg="#7b7067").pack(side="left")
+        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
 
     def open_chat(self) -> None:
         if self.chat_window and self.chat_window.winfo_exists():
@@ -546,6 +719,12 @@ class DesktopPet:
             return f"\u5f53\u524d\u756a\u8304\u949f\uff1a{self.pomodoro_label()}\u3002"
         if "\u65f6\u95f4" in text or "\u7edf\u8ba1" in text or "stats" in lowered:
             return self.daily_summary_sentence()
+        if "\u4e09\u4ef6\u4e8b" in text or "\u4efb\u52a1" in text or "task" in lowered:
+            self.root.after(0, self.open_tasks)
+            return "\u6211\u5e2e\u4f60\u6253\u5f00\u4eca\u65e5\u4e09\u4ef6\u4e8b\u3002"
+        if "\u603b\u7ed3" in text or "\u62a5\u544a" in text or "report" in lowered:
+            self.root.after(0, self.generate_report)
+            return "\u6211\u6765\u751f\u6210\u4eca\u65e5\u603b\u7ed3\u3002"
         if "\u7d2f" in text or "\u56f0" in text:
             return "\u90a3\u5c31\u7ad9\u8d77\u6765\u559d\u53e3\u6c34\uff0c\u6211\u7ed9\u4f60\u770b\u7740\u949f\u3002"
         if "\u4f60\u597d" in text or "hello" in lowered or "hi" == lowered:
