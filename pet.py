@@ -464,6 +464,11 @@ class DesktopPet:
         self.tasks_window: tk.Toplevel | None = None
         self.panel_window: tk.Toplevel | None = None
         self.panel_visible = False
+        self.pomodoro_widget: tk.Toplevel | None = None
+        self.pomodoro_time_var = tk.StringVar(value="")
+        self.pomodoro_mode_var = tk.StringVar(value="")
+        self.pomodoro_action_var = tk.StringVar(value="")
+        self.pomodoro_progress: tk.Canvas | None = None
         self.tasks = self.load_tasks()
         self.active_stretch_seconds = 0
         self.last_eye_reminder = time.time()
@@ -490,6 +495,7 @@ class DesktopPet:
         self.menu.add_command(label="\u5f00\u59cb\u756a\u8304\u949f", command=self.start_pomodoro)
         self.menu.add_command(label="\u6682\u505c\u756a\u8304\u949f", command=self.pause_pomodoro)
         self.menu.add_command(label="\u91cd\u7f6e\u756a\u8304\u949f", command=self.reset_pomodoro)
+        self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u756a\u8304\u949f", command=self.toggle_pomodoro_widget)
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
@@ -512,6 +518,7 @@ class DesktopPet:
         self.root.bind("<Escape>", lambda _event: self.quit())
         self.root.bind("<space>", lambda _event: self.drop_from_top())
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        self.root.after(400, self.open_pomodoro_widget)
         if self.cloud.is_configured():
             self.root.after(1500, lambda: self.sync_cloud_async(manual=False))
         self.root.after(1000, self.activity_loop)
@@ -576,6 +583,82 @@ class DesktopPet:
             self.open_panel()
         elif self.panel_window and self.panel_window.winfo_exists():
             self.panel_window.destroy()
+
+    def toggle_pomodoro_widget(self) -> None:
+        if self.pomodoro_widget and self.pomodoro_widget.winfo_exists():
+            self.pomodoro_widget.destroy()
+            return
+        self.open_pomodoro_widget()
+
+    def open_pomodoro_widget(self) -> None:
+        if self.pomodoro_widget and self.pomodoro_widget.winfo_exists():
+            self.pomodoro_widget.lift()
+            self.refresh_pomodoro_widget()
+            return
+
+        win = tk.Toplevel(self.root)
+        self.pomodoro_widget = win
+        win.overrideredirect(True)
+        win.attributes("-topmost", True)
+        win.attributes("-alpha", 0.94)
+        win.configure(bg="#f6f1e9")
+
+        frame = tk.Frame(win, bg="#f6f1e9", highlightthickness=1, highlightbackground="#d7c8b6")
+        frame.pack(fill="both", expand=True)
+
+        top = tk.Frame(frame, bg="#f6f1e9")
+        top.pack(fill="x", padx=8, pady=(6, 2))
+        tk.Label(top, text="\u756a\u8304", bg="#f6f1e9", fg="#6b5844", font=("Microsoft YaHei UI", 8, "bold")).pack(side="left")
+        tk.Label(top, textvariable=self.pomodoro_mode_var, bg="#f6f1e9", fg="#9a6a45", font=("Microsoft YaHei UI", 7)).pack(side="right")
+
+        self.pomodoro_progress = tk.Canvas(frame, width=132, height=8, bg="#f6f1e9", highlightthickness=0)
+        self.pomodoro_progress.pack(fill="x", padx=8, pady=(1, 2))
+
+        tk.Label(frame, textvariable=self.pomodoro_time_var, bg="#f6f1e9", fg="#2f2925", font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=8)
+
+        buttons = tk.Frame(frame, bg="#f6f1e9")
+        buttons.pack(fill="x", padx=6, pady=(3, 6))
+        tk.Button(buttons, textvariable=self.pomodoro_action_var, command=self.toggle_pomodoro_running, width=5, relief="flat", bg="#ffffff", activebackground="#fff7ea").pack(side="left", padx=2)
+        tk.Button(buttons, text="\u91cd\u7f6e", command=self.reset_pomodoro, width=5, relief="flat", bg="#ffffff", activebackground="#fff7ea").pack(side="left", padx=2)
+        tk.Button(buttons, text="\u00d7", command=win.destroy, width=2, relief="flat", bg="#f6f1e9", activebackground="#eadfd3").pack(side="right", padx=2)
+
+        self.refresh_pomodoro_widget()
+
+    def toggle_pomodoro_running(self) -> None:
+        if self.pomodoro_running:
+            self.pause_pomodoro()
+        else:
+            self.start_pomodoro()
+
+    def refresh_pomodoro_widget(self) -> None:
+        if not self.pomodoro_widget or not self.pomodoro_widget.winfo_exists():
+            return
+        total = FOCUS_SECONDS if self.pomodoro_mode == "focus" else BREAK_SECONDS
+        remaining = max(0, self.pomodoro_remaining)
+        minutes, seconds = divmod(int(remaining), 60)
+        mode_text = "\u4e13\u6ce8\u4e2d" if self.pomodoro_mode == "focus" else "\u4f11\u606f\u4e2d"
+        if not self.pomodoro_running:
+            mode_text = "\u5df2\u6682\u505c" if remaining < total else "\u672a\u5f00\u59cb"
+        self.pomodoro_time_var.set(f"{minutes:02d}:{seconds:02d}")
+        self.pomodoro_mode_var.set(mode_text)
+        self.pomodoro_action_var.set("\u6682\u505c" if self.pomodoro_running else "\u5f00\u59cb")
+
+        if self.pomodoro_progress:
+            self.pomodoro_progress.delete("all")
+            width = int(self.pomodoro_progress["width"])
+            progress = 1 - remaining / max(total, 1)
+            progress = min(max(progress, 0), 1)
+            color = "#e45756" if self.pomodoro_mode == "focus" else "#54a24b"
+            self.pomodoro_progress.create_rectangle(0, 2, width, 7, fill="#e6ded4", outline="")
+            self.pomodoro_progress.create_rectangle(0, 2, max(4, int(width * progress)), 7, fill=color, outline="")
+
+        x = self.x + self.width + 10
+        y = max(20, self.y + 18)
+        screen_w = self.root.winfo_screenwidth()
+        if x + 150 > screen_w:
+            x = max(10, self.x - 154)
+        self.pomodoro_widget.geometry(f"144x96+{int(x)}+{int(y)}")
+        self.root.after(500, self.refresh_pomodoro_widget)
 
     def open_panel(self) -> None:
         if self.panel_window and self.panel_window.winfo_exists():
