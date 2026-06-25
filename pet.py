@@ -292,9 +292,8 @@ class DesktopPet:
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
-        self.menu.add_command(label="\u4eca\u65e5\u65f6\u95f4\u7edf\u8ba1", command=self.open_stats)
+        self.menu.add_command(label="\u4eca\u65e5\u770b\u677f", command=self.open_stats)
         self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
-        self.menu.add_command(label="\u751f\u6210\u4eca\u65e5\u603b\u7ed3", command=self.generate_report)
         self.menu.add_separator()
         self.menu.add_command(label="\u9000\u51fa", command=self.quit)
 
@@ -381,7 +380,7 @@ class DesktopPet:
         buttons.pack(fill="x", padx=8, pady=(8, 6))
         tk.Button(buttons, text="\u756a\u8304", command=self.start_pomodoro).pack(side="left", padx=2)
         tk.Button(buttons, text="\u4efb\u52a1", command=self.open_tasks).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u7edf\u8ba1", command=self.open_stats).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u770b\u677f", command=self.open_stats).pack(side="left", padx=2)
         tk.Button(buttons, text="\u5bf9\u8bdd", command=self.open_chat).pack(side="left", padx=2)
         tk.Button(frame, text="\u5173\u95ed\u5c0f\u9762\u677f", command=self.toggle_panel).pack(anchor="e", padx=8, pady=(0, 8))
         self.refresh_panel()
@@ -744,9 +743,7 @@ class DesktopPet:
         else:
             lines.append("- \u6682\u65e0\u6570\u636e")
 
-        suggestion = "\u660e\u5929\u5148\u5b8c\u6210\u4eca\u65e5\u4e09\u4ef6\u4e8b\u4e2d\u6700\u96be\u7684\u4e00\u4ef6\uff0c\u518d\u6253\u5f00\u9ad8\u8017\u65f6\u5e94\u7528\u3002"
-        if done_count == 3:
-            suggestion = "\u4eca\u5929\u4e09\u4ef6\u4e8b\u5168\u90e8\u5b8c\u6210\uff0c\u660e\u5929\u53ef\u4ee5\u7ee7\u7eed\u4fdd\u6301\u8fd9\u4e2a\u8282\u594f\u3002"
+        suggestion = self.dashboard_suggestion(done_count, apps)
         lines.extend(["", "## \u840c\u5ba0\u5efa\u8bae", f"- {suggestion}", ""])
 
         report_path.write_text("\n".join(lines), encoding="utf-8")
@@ -968,6 +965,13 @@ class DesktopPet:
         parts = [f"{name} {format_seconds(seconds)}" for name, seconds in top]
         return "\u4eca\u5929\u82b1\u65f6\u95f4\u6700\u591a\u7684\u5730\u65b9\u662f\uff1a" + "\uff0c".join(parts) + "\u3002"
 
+    def dashboard_suggestion(self, done_count: int, apps: list[tuple[str, float]]) -> str:
+        if done_count == 3:
+            return "\u4eca\u5929\u4e09\u4ef6\u4e8b\u5168\u90e8\u5b8c\u6210\uff0c\u660e\u5929\u53ef\u4ee5\u7ee7\u7eed\u4fdd\u6301\u8fd9\u4e2a\u8282\u594f\u3002"
+        if apps:
+            return f"\u4eca\u5929 {apps[0][0]} \u7528\u5f97\u6700\u591a\uff0c\u660e\u5929\u53ef\u4ee5\u5148\u5b8c\u6210\u4e00\u4ef6\u91cd\u8981\u4e8b\uff0c\u518d\u6253\u5f00\u5b83\u3002"
+        return "\u5148\u5199\u4e0b\u4eca\u65e5\u4e09\u4ef6\u4e8b\uff0c\u6211\u4f1a\u5e2e\u4f60\u4e00\u8d77\u770b\u8282\u594f\u3002"
+
     def total_activity_seconds(self) -> float:
         return sum(self.tracker.data.get("apps", {}).values())
 
@@ -1010,14 +1014,14 @@ class DesktopPet:
     def draw_window_ranking(self, canvas: tk.Canvas, windows: list[dict]) -> None:
         canvas.delete("all")
         width = int(canvas["width"])
-        canvas.create_text(18, 18, anchor="w", text="\u7a97\u53e3\u660e\u7ec6\u6392\u884c", fill="#2f2925", font=("Microsoft YaHei UI", 13, "bold"))
+        canvas.create_text(18, 18, anchor="w", text="\u7a97\u53e3\u660e\u7ec6 Top 6", fill="#2f2925", font=("Microsoft YaHei UI", 13, "bold"))
 
         if not windows:
             canvas.create_text(width / 2, 108, text="\u6682\u65e0\u7a97\u53e3\u660e\u7ec6\u3002", fill="#7b7067", font=("Microsoft YaHei UI", 11))
             return
 
-        for index, item in enumerate(windows[:8], start=1):
-            y = 48 + (index - 1) * 32
+        for index, item in enumerate(windows[:6], start=1):
+            y = 46 + (index - 1) * 29
             seconds = item.get("seconds", 0)
             process = str(item.get("process", "\u672a\u77e5"))
             title = str(item.get("title", "\u65e0\u6807\u9898"))[:54]
@@ -1027,51 +1031,89 @@ class DesktopPet:
             canvas.create_text(48, y + 22, anchor="w", text=title, fill="#7b7067", font=("Microsoft YaHei UI", 9))
             canvas.create_text(width - 18, y + 14, anchor="e", text=format_seconds(seconds), fill="#4c78a8", font=("Segoe UI", 10, "bold"))
 
+    def draw_task_summary(self, canvas: tk.Canvas, done_count: int) -> None:
+        canvas.delete("all")
+        canvas.create_text(18, 18, anchor="w", text="\u4eca\u65e5\u4e09\u4ef6\u4e8b", fill="#2f2925", font=("Microsoft YaHei UI", 13, "bold"))
+        canvas.create_text(328, 20, anchor="e", text=f"{done_count}/3", fill="#54a24b", font=("Segoe UI", 15, "bold"))
+        canvas.create_rectangle(18, 40, 330, 48, fill="#eee8df", outline="")
+        canvas.create_rectangle(18, 40, 18 + int(312 * done_count / 3), 48, fill="#54a24b", outline="")
+
+        for index, task in enumerate(self.tasks[:3], start=1):
+            y = 66 + (index - 1) * 28
+            done = bool(task.get("done"))
+            mark = "\u2713" if done else str(index)
+            fill = "#54a24b" if done else "#efe6d8"
+            outline = "#54a24b" if done else "#d8d1c7"
+            text = self.fit_text(task.get("text") or "\u672a\u586b\u5199", 22)
+            canvas.create_oval(18, y - 10, 38, y + 10, fill=fill, outline=outline)
+            canvas.create_text(28, y, text=mark, fill="#ffffff" if done else "#6b5844", font=("Segoe UI", 9, "bold"))
+            canvas.create_text(48, y, anchor="w", text=text, fill="#3f342f", font=("Microsoft YaHei UI", 10))
+
+    def draw_advice_card(self, canvas: tk.Canvas, suggestion: str, total_seconds: float) -> None:
+        canvas.delete("all")
+        canvas.create_text(18, 18, anchor="w", text="\u840c\u5ba0\u4eca\u65e5\u5efa\u8bae", fill="#2f2925", font=("Microsoft YaHei UI", 13, "bold"))
+        canvas.create_text(18, 54, anchor="w", text=suggestion, width=312, fill="#3f342f", font=("Microsoft YaHei UI", 10), justify="left")
+        canvas.create_rectangle(18, 112, 330, 146, fill="#fff7ea", outline="#ead7b7")
+        canvas.create_text(30, 129, anchor="w", text="\u8bb0\u5f55\u65f6\u957f", fill="#7b7067", font=("Microsoft YaHei UI", 9))
+        canvas.create_text(318, 129, anchor="e", text=format_seconds(total_seconds), fill="#f58518", font=("Segoe UI", 12, "bold"))
+
     def open_stats(self) -> None:
+        self.tracker.sample()
         self.tracker.save()
         if self.stats_window and self.stats_window.winfo_exists():
             self.stats_window.destroy()
 
         win = tk.Toplevel(self.root)
         self.stats_window = win
-        win.title("\u4eca\u65e5\u65f6\u95f4\u7edf\u8ba1")
-        win.geometry("760x620")
-        win.minsize(720, 560)
+        win.title("\u4eca\u65e5\u770b\u677f")
+        win.geometry("780x720")
+        win.minsize(740, 640)
         win.attributes("-topmost", True)
         win.configure(bg="#f7f4ef")
 
         header = tk.Frame(win, bg="#f7f4ef")
         header.pack(fill="x", padx=18, pady=(16, 10))
-        tk.Label(header, text="\u4eca\u65e5\u65f6\u95f4\u770b\u677f", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 18, "bold")).pack(anchor="w")
-        tk.Label(header, text=f"\u65e5\u671f\uff1a{self.tracker.current_day}    \u6570\u636e\uff1a{self.tracker.path.name}", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
+        tk.Label(header, text="\u4eca\u65e5\u770b\u677f", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 19, "bold")).pack(anchor="w")
+        tk.Label(header, text=f"\u65f6\u95f4\u7edf\u8ba1\u3001\u4e09\u4ef6\u4e8b\u548c\u4eca\u65e5\u603b\u7ed3\u653e\u5728\u4e00\u8d77    {self.tracker.current_day}", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
 
         apps = self.tracker.top_apps(6)
-        windows = self.tracker.top_windows(8)
+        windows = self.tracker.top_windows(6)
         total_seconds = self.total_activity_seconds()
         app_count = len(self.tracker.data.get("apps", {}))
         window_count = len(self.tracker.data.get("windows", {}))
+        done_count = sum(1 for task in self.tasks if task.get("done"))
+        suggestion = self.dashboard_suggestion(done_count, apps)
 
         cards = tk.Frame(win, bg="#f7f4ef")
         cards.pack(fill="x", padx=18, pady=(0, 12))
         self.make_stat_card(cards, "\u603b\u8bb0\u5f55\u65f6\u957f", format_seconds(total_seconds), "#4c78a8").pack(side="left", padx=(0, 12))
         self.make_stat_card(cards, "\u6d89\u53ca\u5e94\u7528", f"{app_count} \u4e2a", "#54a24b").pack(side="left", padx=(0, 12))
-        top_name = apps[0][0][:14] if apps else "\u6682\u65e0"
-        self.make_stat_card(cards, "\u6700\u957f\u4f7f\u7528", top_name, "#f58518").pack(side="left")
+        self.make_stat_card(cards, "\u4e09\u4ef6\u4e8b", f"{done_count}/3", "#e45756").pack(side="left")
 
-        chart = tk.Canvas(win, width=720, height=282, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        chart = tk.Canvas(win, width=736, height=258, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
         chart.pack(fill="x", padx=18, pady=(0, 12))
         self.draw_app_chart(chart, apps)
 
-        ranking = tk.Canvas(win, width=720, height=318, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        insight_row = tk.Frame(win, bg="#f7f4ef")
+        insight_row.pack(fill="x", padx=18, pady=(0, 12))
+        tasks = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        tasks.pack(side="left", fill="x", expand=True, padx=(0, 12))
+        self.draw_task_summary(tasks, done_count)
+        advice = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        advice.pack(side="left", fill="x", expand=True)
+        self.draw_advice_card(advice, suggestion, total_seconds)
+
+        ranking = tk.Canvas(win, width=736, height=226, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
         ranking.pack(fill="both", expand=True, padx=18, pady=(0, 10))
         self.draw_window_ranking(ranking, windows)
 
         bottom = tk.Frame(win, bg="#f7f4ef")
         bottom.pack(fill="x", padx=18, pady=(0, 14))
         tk.Label(bottom, text=f"\u5171 {window_count} \u4e2a\u7a97\u53e3\u8bb0\u5f55", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(side="left")
-        tk.Button(bottom, text="\u5237\u65b0", command=self.open_stats).pack(side="right")
-        tk.Button(bottom, text="\u64ad\u62a5\u603b\u7ed3", command=lambda: self.speak(self.daily_summary_sentence())).pack(side="right", padx=6)
         tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+        tk.Button(bottom, text="\u5237\u65b0", command=self.open_stats).pack(side="right", padx=6)
+        tk.Button(bottom, text="\u751f\u6210 Markdown \u603b\u7ed3", command=self.generate_report).pack(side="right", padx=6)
+        tk.Button(bottom, text="\u64ad\u62a5\u603b\u7ed3", command=lambda: self.speak(self.daily_summary_sentence())).pack(side="right")
 
     def maybe_walk(self) -> None:
         if self.drag_start is not None or self.is_sleeping or self.drop_active:
