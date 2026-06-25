@@ -492,9 +492,6 @@ class DesktopPet:
         action_menu.add_command(label="\u6062\u590d\u65e5\u5e38", command=self.clear_action)
         self.menu.add_cascade(label="\u5207\u6362\u52a8\u4f5c/\u89d2\u8272", menu=action_menu)
         self.menu.add_separator()
-        self.menu.add_command(label="\u5f00\u59cb\u756a\u8304\u949f", command=self.start_pomodoro)
-        self.menu.add_command(label="\u6682\u505c\u756a\u8304\u949f", command=self.pause_pomodoro)
-        self.menu.add_command(label="\u91cd\u7f6e\u756a\u8304\u949f", command=self.reset_pomodoro)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u756a\u8304\u949f", command=self.toggle_pomodoro_widget)
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
@@ -600,27 +597,36 @@ class DesktopPet:
         self.pomodoro_widget = win
         win.overrideredirect(True)
         win.attributes("-topmost", True)
-        win.attributes("-alpha", 0.94)
-        win.configure(bg="#f6f1e9")
+        win.attributes("-alpha", 0.86)
+        glass_bg = "#f8fbff"
+        glass_edge = "#d9e6f2"
+        win.configure(bg=glass_bg)
 
-        frame = tk.Frame(win, bg="#f6f1e9", highlightthickness=1, highlightbackground="#d7c8b6")
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=glass_edge)
         frame.pack(fill="both", expand=True)
 
-        top = tk.Frame(frame, bg="#f6f1e9")
-        top.pack(fill="x", padx=8, pady=(6, 2))
-        tk.Label(top, text="\u756a\u8304", bg="#f6f1e9", fg="#6b5844", font=("Microsoft YaHei UI", 8, "bold")).pack(side="left")
-        tk.Label(top, textvariable=self.pomodoro_mode_var, bg="#f6f1e9", fg="#9a6a45", font=("Microsoft YaHei UI", 7)).pack(side="right")
+        top = tk.Frame(frame, bg=glass_bg)
+        top.pack(fill="x", padx=10, pady=(8, 1))
+        tk.Label(top, text="\u25cf", bg=glass_bg, fg="#ff6b6b", font=("Segoe UI", 7)).pack(side="left", padx=(0, 4))
+        tk.Label(top, text="\u756a\u8304\u4e13\u6ce8", bg=glass_bg, fg="#40505f", font=("Microsoft YaHei UI", 8, "bold")).pack(side="left")
+        tk.Label(top, textvariable=self.pomodoro_mode_var, bg=glass_bg, fg="#6b7c8c", font=("Microsoft YaHei UI", 7)).pack(side="right")
 
-        self.pomodoro_progress = tk.Canvas(frame, width=132, height=8, bg="#f6f1e9", highlightthickness=0)
-        self.pomodoro_progress.pack(fill="x", padx=8, pady=(1, 2))
+        tk.Frame(frame, bg="#ffffff", height=1).pack(fill="x", padx=10, pady=(2, 5))
 
-        tk.Label(frame, textvariable=self.pomodoro_time_var, bg="#f6f1e9", fg="#2f2925", font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=8)
+        time_row = tk.Frame(frame, bg=glass_bg)
+        time_row.pack(fill="x", padx=10)
+        tk.Label(time_row, textvariable=self.pomodoro_time_var, bg=glass_bg, fg="#23313f", font=("Segoe UI", 17, "bold")).pack(side="left")
+        tk.Label(time_row, text="\u25cf \u25cf \u25cf", bg=glass_bg, fg="#c8d5df", font=("Segoe UI", 6)).pack(side="right", pady=(8, 0))
 
-        buttons = tk.Frame(frame, bg="#f6f1e9")
-        buttons.pack(fill="x", padx=6, pady=(3, 6))
-        tk.Button(buttons, textvariable=self.pomodoro_action_var, command=self.toggle_pomodoro_running, width=5, relief="flat", bg="#ffffff", activebackground="#fff7ea").pack(side="left", padx=2)
-        tk.Button(buttons, text="\u91cd\u7f6e", command=self.reset_pomodoro, width=5, relief="flat", bg="#ffffff", activebackground="#fff7ea").pack(side="left", padx=2)
-        tk.Button(buttons, text="\u00d7", command=win.destroy, width=2, relief="flat", bg="#f6f1e9", activebackground="#eadfd3").pack(side="right", padx=2)
+        self.pomodoro_progress = tk.Canvas(frame, width=138, height=11, bg=glass_bg, highlightthickness=0)
+        self.pomodoro_progress.pack(fill="x", padx=10, pady=(4, 4))
+
+        buttons = tk.Frame(frame, bg=glass_bg)
+        buttons.pack(fill="x", padx=8, pady=(1, 8))
+        button_style = {"relief": "flat", "bd": 0, "font": ("Microsoft YaHei UI", 8), "cursor": "hand2"}
+        tk.Button(buttons, textvariable=self.pomodoro_action_var, command=self.toggle_pomodoro_running, width=6, bg="#ffffff", fg="#40505f", activebackground="#eaf3fb", **button_style).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u91cd\u7f6e", command=self.reset_pomodoro, width=6, bg="#ffffff", fg="#6b7c8c", activebackground="#eaf3fb", **button_style).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u00d7", command=win.destroy, width=2, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", **button_style).pack(side="right", padx=2)
 
         self.refresh_pomodoro_widget()
 
@@ -648,16 +654,17 @@ class DesktopPet:
             width = int(self.pomodoro_progress["width"])
             progress = 1 - remaining / max(total, 1)
             progress = min(max(progress, 0), 1)
-            color = "#e45756" if self.pomodoro_mode == "focus" else "#54a24b"
-            self.pomodoro_progress.create_rectangle(0, 2, width, 7, fill="#e6ded4", outline="")
-            self.pomodoro_progress.create_rectangle(0, 2, max(4, int(width * progress)), 7, fill=color, outline="")
+            color = "#ff6b6b" if self.pomodoro_mode == "focus" else "#5ac88f"
+            self.pomodoro_progress.create_rectangle(0, 3, width, 9, fill="#e2ebf3", outline="")
+            self.pomodoro_progress.create_rectangle(0, 3, max(5, int(width * progress)), 9, fill=color, outline="")
+            self.pomodoro_progress.create_oval(max(0, int(width * progress) - 4), 1, max(8, int(width * progress) + 4), 11, fill="#ffffff", outline=color)
 
         x = self.x + self.width + 10
         y = max(20, self.y + 18)
         screen_w = self.root.winfo_screenwidth()
-        if x + 150 > screen_w:
-            x = max(10, self.x - 154)
-        self.pomodoro_widget.geometry(f"144x96+{int(x)}+{int(y)}")
+        if x + 158 > screen_w:
+            x = max(10, self.x - 162)
+        self.pomodoro_widget.geometry(f"152x116+{int(x)}+{int(y)}")
         self.root.after(500, self.refresh_pomodoro_widget)
 
     def open_panel(self) -> None:
