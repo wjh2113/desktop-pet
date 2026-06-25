@@ -1654,7 +1654,6 @@ class DesktopPet:
         self.draw_paws(cx, cy)
         self.draw_action_props(cx, cy, wag)
         self.draw_sleep_overlay(cx, cy)
-        self.draw_status()
 
         if self.message_until > 0:
             self.draw_bubble(self.message)
@@ -2051,7 +2050,7 @@ class DesktopPet:
     def draw_bubble(self, text: str) -> None:
         display = self.fit_text(text, 26)
         self.draw_speech_bubble(18, 8, 242, 52)
-        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 6))
+        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 7))
 
     def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
         fill = "#fffdfb"
