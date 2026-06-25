@@ -101,6 +101,7 @@ PET_ACTIONS = {
     "work": PetAction("\u52b3\u52a8", "focused", "\u5c0f\u5de5\u5320\u4e0a\u5c97\uff0c\u6572\u6572\u6253\u6253\u3002", ("\u52b3\u52a8", "\u5de5\u4f5c", "\u5e72\u6d3b")),
     "plant": PetAction("\u690d\u6811", "proud", "\u57f9\u571f\u6d47\u6c34\uff0c\u79cd\u4e0b\u4e00\u70b9\u7eff\u610f\u3002", ("\u690d\u6811", "\u79cd\u6811", "\u79cd\u82b1")),
     "home": PetAction("\u8fc7\u5bb6\u5bb6", "curious", "\u4eca\u5929\u6211\u6765\u5f53\u5c0f\u7ba1\u5bb6\u3002", ("\u8fc7\u5bb6\u5bb6", "\u5bb6\u5bb6", "\u5c0f\u7ba1\u5bb6")),
+    "teacher": PetAction("\u5c0f\u8001\u5e08", "focused", "\u5c0f\u8001\u5e08\u5f00\u8bfe\uff1a\u5148\u628a\u6700\u91cd\u8981\u7684\u90a3\u4ef6\u4e8b\u5199\u4e0b\u6765\u3002", ("\u8001\u5e08", "\u8bb2\u8bfe", "\u4e0a\u8bfe", "\u6559\u5b66")),
     "study": PetAction("\u5b66\u4e60", "focused", "\u6253\u5f00\u5c0f\u4e66\u672c\uff0c\u6211\u4eec\u4e00\u8d77\u5b66\u4e00\u4f1a\u513f\u3002", ("\u5b66\u4e60", "\u8bfb\u4e66", "\u770b\u4e66")),
     "chef": PetAction("\u53a8\u5e08", "hungry", "\u4eca\u5929\u505a\u70b9\u6696\u4e4e\u4e4e\u7684\u597d\u5403\u7684\u3002", ("\u53a8\u5e08", "\u505a\u996d", "\u70f9\u996a")),
     "paint": PetAction("\u753b\u753b", "excited", "\u753b\u4e00\u70b9\u5f69\u8272\uff0c\u684c\u9762\u4f1a\u66f4\u53ef\u7231\u3002", ("\u753b\u753b", "\u753b\u753b", "\u753b\u5bb6")),
@@ -749,6 +750,8 @@ class DesktopPet:
 
     def nap(self) -> None:
         self.drop_active = False
+        self.current_action = None
+        self.action_until = 0
         self.set_mood("sleepy", "\u665a\u5b89\u4e00\u5206\u949f\u3002", 240)
 
     def start_pomodoro(self) -> None:
@@ -1550,6 +1553,7 @@ class DesktopPet:
         wag = math.sin(self.tick / 5) * 8
         cx, cy = 130, 126 + bob
 
+        self.draw_scene(cx, cy, wag)
         self.draw_shadow(cx, cy)
         self.draw_tail(cx, cy, wag)
         self.draw_body(cx, cy)
@@ -1559,6 +1563,7 @@ class DesktopPet:
         self.draw_face(cx, cy, blink)
         self.draw_paws(cx, cy)
         self.draw_action_props(cx, cy, wag)
+        self.draw_sleep_overlay(cx, cy)
         self.draw_status()
 
         if self.message_until > 0:
@@ -1571,8 +1576,8 @@ class DesktopPet:
 
         if self.is_sleeping:
             z_y = 44 + math.sin(self.tick / 10) * 5
-            self.canvas.create_text(188, z_y, text="Z", fill="#7667d6", font=("Segoe UI", 15, "bold"))
-            self.canvas.create_text(204, z_y - 14, text="z", fill="#7667d6", font=("Segoe UI", 11, "bold"))
+            self.canvas.create_text(188, z_y, text="Z", fill="#7667d6", font=("Segoe UI", 9, "bold"))
+            self.canvas.create_text(204, z_y - 14, text="z", fill="#7667d6", font=("Segoe UI", 7, "bold"))
 
         self.canvas.scale("all", 0, 0, self.ui_scale, self.ui_scale)
 
@@ -1580,7 +1585,7 @@ class DesktopPet:
         label = self.pomodoro_label()
         display = self.fit_text(label, 18)
         self.draw_round_bubble(30, 187, 230, 226, radius=14, tail_at="top", fill="#fffaf0")
-        self.canvas.create_text(130, 207, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 8, "bold"))
+        self.canvas.create_text(130, 207, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 5))
 
     def fit_text(self, text: str, max_chars: int) -> str:
         text = " ".join(str(text).split())
@@ -1615,6 +1620,62 @@ class DesktopPet:
             self.canvas.create_polygon([118, y2 - 2, 130, y2 + 15, 143, y2 - 2], fill=fill, outline=outline, width=2)
         elif tail_at == "top":
             self.canvas.create_polygon([118, y1 + 2, 130, y1 - 12, 143, y1 + 2], fill=fill, outline=outline, width=2)
+
+    def draw_scene(self, cx: float, cy: float, wag: float) -> None:
+        action = self.current_action
+        ground = cy + 81
+        if self.is_sleeping:
+            self.canvas.create_oval(cx - 92, ground - 12, cx + 92, ground + 15, fill="#e8e0ff", outline="")
+            self.canvas.create_arc(cx + 62, cy - 92, cx + 102, cy - 52, start=95, extent=220, fill="#fff6bf", outline="")
+            self.canvas.create_oval(cx + 74, cy - 95, cx + 108, cy - 57, fill=TRANSPARENT, outline="")
+            for sx, sy in [(54, -74), (96, -34), (-78, -52)]:
+                self.canvas.create_text(cx + sx, cy + sy, text="\u2726", fill="#a697ff", font=("Segoe UI Symbol", 7))
+            self.canvas.create_arc(cx - 76, cy + 24, cx + 76, cy + 92, start=0, extent=180, fill="#bfc9ff", outline=INK, width=2)
+            self.canvas.create_line(cx - 48, cy + 53, cx + 46, cy + 53, fill="#8f9be8", width=2)
+            return
+
+        if not action:
+            self.canvas.create_oval(cx - 74, ground - 7, cx + 74, ground + 9, fill="#eadfd3", outline="")
+            return
+
+        if action == "teacher":
+            self.canvas.create_oval(cx - 82, ground - 8, cx + 84, ground + 10, fill="#dfece4", outline="")
+            self.canvas.create_rectangle(cx - 118, cy - 78, cx - 36, cy - 18, fill="#3f6b58", outline=INK, width=2)
+            self.canvas.create_rectangle(cx - 112, cy - 72, cx - 42, cy - 24, fill="#477965", outline="")
+            self.canvas.create_line(cx - 118, cy - 18, cx - 36, cy - 18, fill="#caa66a", width=4)
+            self.canvas.create_text(cx - 77, cy - 54, text="1 2 3", fill="#f8f2dc", font=("Segoe UI", 7, "bold"))
+            self.canvas.create_line(cx - 107, cy - 36, cx - 71, cy - 36, fill="#f8f2dc", width=2)
+            self.canvas.create_rectangle(cx + 48, cy + 44, cx + 104, cy + 76, fill="#e8c18a", outline=INK, width=2)
+            self.canvas.create_line(cx + 56, cy + 54, cx + 96, cy + 54, fill="#b7844d", width=2)
+        elif action == "plant":
+            self.canvas.create_oval(cx - 92, ground - 6, cx + 98, ground + 12, fill="#dcedc8", outline="")
+            self.canvas.create_arc(cx - 122, cy - 104, cx - 74, cy - 56, start=0, extent=359, fill="#ffe08a", outline="")
+            for angle in range(0, 360, 45):
+                x = math.cos(math.radians(angle)) * 34
+                y = math.sin(math.radians(angle)) * 34
+                self.canvas.create_line(cx - 98, cy - 80, cx - 98 + x, cy - 80 + y, fill="#ffd166", width=2)
+            self.canvas.create_arc(cx - 84, cy + 38, cx + 6, cy + 96, start=0, extent=180, fill="#8a5a2b", outline=INK, width=2)
+            for offset in [-38, -18, 8, 34]:
+                self.canvas.create_oval(cx + offset, cy + 55, cx + offset + 10, cy + 63, fill="#6dbb63", outline="")
+        elif action == "home":
+            self.canvas.create_oval(cx - 90, ground - 12, cx + 96, ground + 12, fill="#ffe8ef", outline="")
+            self.canvas.create_rectangle(cx - 114, cy + 20, cx - 66, cy + 72, fill="#fff7ea", outline=INK, width=2)
+            self.canvas.create_polygon([cx - 120, cy + 21, cx - 90, cy - 5 + wag * 0.08, cx - 60, cy + 21], fill="#e45756", outline=INK, width=2)
+            self.canvas.create_rectangle(cx - 96, cy + 48, cx - 84, cy + 72, fill="#d6b08a", outline=INK, width=1)
+            self.canvas.create_oval(cx + 57, cy + 50, cx + 98, cy + 78, fill="#ffd6a5", outline=INK, width=2)
+            self.canvas.create_rectangle(cx + 62, cy + 31, cx + 91, cy + 61, fill="#fff4d6", outline=INK, width=2)
+            self.canvas.create_polygon([cx + 58, cy + 31, cx + 76, cy + 13, cx + 96, cy + 31], fill="#ff8fb3", outline=INK, width=2)
+        elif action == "study":
+            self.canvas.create_oval(cx - 86, ground - 8, cx + 86, ground + 10, fill="#dceeff", outline="")
+            self.canvas.create_rectangle(cx - 104, cy + 48, cx + 104, cy + 77, fill="#caa66a", outline=INK, width=2)
+            self.canvas.create_rectangle(cx - 92, cy + 36, cx - 56, cy + 49, fill="#fff7ea", outline=INK, width=1)
+            self.canvas.create_rectangle(cx - 50, cy + 33, cx - 14, cy + 49, fill="#d7c2ff", outline=INK, width=1)
+        elif action == "drink":
+            self.canvas.create_oval(cx - 80, ground - 8, cx + 80, ground + 9, fill="#dff4ff", outline="")
+            for x in [cx - 82, cx - 54, cx + 82]:
+                self.canvas.create_oval(x - 4, cy - 24 + math.sin(self.tick / 7 + x) * 3, x + 4, cy - 13, fill="#8ed7ff", outline="")
+        else:
+            self.canvas.create_oval(cx - 82, ground - 8, cx + 82, ground + 10, fill="#eee7dc", outline="")
 
     def draw_shadow(self, cx: float, cy: float) -> None:
         width_boost = 1 + max(self.squash, 0) * 0.65
@@ -1662,6 +1723,10 @@ class DesktopPet:
         elif action == "home":
             self.canvas.create_arc(cx - 50, cy - 17, cx + 50, cy + 81, start=200, extent=140, fill="#ffc8dd", outline=INK, width=2)
             self.canvas.create_oval(cx - 16, cy + 24, cx + 16, cy + 48, fill="#fff7fb", outline="#d68fa4", width=2)
+        elif action == "teacher":
+            self.canvas.create_arc(cx - 50, cy - 18, cx + 50, cy + 81, start=200, extent=140, fill="#f6edd7", outline=INK, width=2)
+            self.canvas.create_polygon([cx - 28, cy + 14, cx, cy + 48, cx + 28, cy + 14], fill="#5b7f95", outline=INK, width=2)
+            self.canvas.create_oval(cx - 8, cy + 17, cx + 8, cy + 30, fill="#e45756", outline=INK, width=1)
         elif action == "study":
             self.canvas.create_arc(cx - 49, cy - 18, cx + 49, cy + 80, start=200, extent=140, fill="#9fd3ff", outline=INK, width=2)
             self.canvas.create_line(cx - 22, cy + 18, cx + 22, cy + 18, fill="#35658b", width=2)
@@ -1693,6 +1758,10 @@ class DesktopPet:
         elif action == "home":
             self.canvas.create_polygon([cx - 34, cy - 59, cx + 34, cy - 59, cx, cy - 82], fill="#ff8fb3", outline=INK, width=2)
             self.canvas.create_oval(cx - 8, cy - 87, cx + 8, cy - 72, fill="#fff7fb", outline=INK, width=2)
+        elif action == "teacher":
+            self.canvas.create_rectangle(cx - 45, cy - 73, cx + 45, cy - 58, fill="#5b7f95", outline=INK, width=2)
+            self.canvas.create_polygon([cx - 42, cy - 72, cx + 42, cy - 72, cx + 26, cy - 88, cx - 26, cy - 88], fill="#5b7f95", outline=INK, width=2)
+            self.canvas.create_line(cx + 44, cy - 64, cx + 60, cy - 52 + wag * 0.08, fill="#e45756", width=2)
         elif action == "study":
             self.canvas.create_rectangle(cx - 42, cy - 72, cx + 42, cy - 57, fill="#2f3d4a", outline=INK, width=2)
             self.canvas.create_polygon([cx + 42, cy - 64, cx + 63, cy - 56, cx + 42, cy - 49], fill="#2f3d4a", outline=INK, width=2)
@@ -1718,7 +1787,7 @@ class DesktopPet:
             self.canvas.create_rectangle(cx + 38, cy + 8 + arm, cx + 66, cy + 50 + arm, fill="#8ed7ff", outline=INK, width=2)
             self.canvas.create_arc(cx + 59, cy + 18 + arm, cx + 80, cy + 42 + arm, start=270, extent=180, style=tk.ARC, outline=INK, width=2)
             self.canvas.create_line(cx + 28, cy + 35, cx + 43, cy + 23 + arm, fill=INK, width=3, capstyle=tk.ROUND)
-            self.canvas.create_text(cx + 52, cy + 66, text="\u6c34", fill="#4c78a8", font=("Microsoft YaHei UI", 10, "bold"))
+            self.canvas.create_text(cx + 52, cy + 66, text="\u6c34", fill="#4c78a8", font=("Microsoft YaHei UI", 6, "bold"))
         elif action == "work":
             self.canvas.create_line(cx + 34, cy + 20, cx + 70, cy - 16 + arm, fill="#8a5a2b", width=4, capstyle=tk.ROUND)
             self.canvas.create_polygon([cx + 64, cy - 22 + arm, cx + 90, cy - 12 + arm, cx + 80, cy + 6 + arm, cx + 57, cy - 4 + arm], fill="#9aa3ad", outline=INK, width=2)
@@ -1738,6 +1807,14 @@ class DesktopPet:
             self.canvas.create_rectangle(cx + 51, cy + 28, cx + 61, cy + 39, fill="#9fd3ff", outline=INK, width=1)
             self.canvas.create_line(cx - 32, cy + 34, cx - 58, cy + 44 + arm, fill=INK, width=3, capstyle=tk.ROUND)
             self.canvas.create_oval(cx - 72, cy + 35 + arm, cx - 52, cy + 55 + arm, fill="#ffdf6e", outline=INK, width=2)
+        elif action == "teacher":
+            self.canvas.create_oval(cx - 37, cy - 10, cx - 13, cy + 10, outline=INK, width=2)
+            self.canvas.create_oval(cx + 13, cy - 10, cx + 37, cy + 10, outline=INK, width=2)
+            self.canvas.create_line(cx - 13, cy, cx + 13, cy, fill=INK, width=2)
+            self.canvas.create_line(cx + 34, cy + 23, cx + 81, cy - 23 + arm, fill="#8a5a2b", width=3, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx + 77, cy - 28 + arm, cx + 86, cy - 19 + arm, fill="#f8f2dc", outline=INK, width=1)
+            self.canvas.create_polygon([cx - 42, cy + 38, cx - 10, cy + 45, cx - 10, cy + 72, cx - 42, cy + 64], fill="#fff7ea", outline=INK, width=2)
+            self.canvas.create_line(cx - 36, cy + 49, cx - 16, cy + 54, fill="#7b7067", width=2)
         elif action == "study":
             self.canvas.create_polygon([cx - 58, cy + 34, cx - 5, cy + 47, cx - 5, cy + 82, cx - 58, cy + 68], fill="#ffffff", outline=INK, width=2)
             self.canvas.create_polygon([cx + 5, cy + 47, cx + 58, cy + 34, cx + 58, cy + 68, cx + 5, cy + 82], fill="#fff7ea", outline=INK, width=2)
@@ -1761,6 +1838,16 @@ class DesktopPet:
             self.canvas.create_rectangle(cx - 76, cy + 35, cx - 38, cy + 67, fill="#ffffff", outline=INK, width=2)
             self.canvas.create_line(cx - 57, cy + 43, cx - 57, cy + 59, fill="#e45756", width=3)
             self.canvas.create_line(cx - 65, cy + 51, cx - 49, cy + 51, fill="#e45756", width=3)
+
+    def draw_sleep_overlay(self, cx: float, cy: float) -> None:
+        if not self.is_sleeping:
+            return
+        breathing = math.sin(self.tick / 12) * 2
+        self.canvas.create_oval(cx - 58, cy + 22 + breathing, cx + 58, cy + 84 + breathing, fill="#c8d2ff", outline=INK, width=2)
+        self.canvas.create_arc(cx - 56, cy + 20 + breathing, cx + 56, cy + 70 + breathing, start=0, extent=180, fill="#dbe2ff", outline="#8f9be8", width=2)
+        for x in [-32, 0, 32]:
+            self.canvas.create_line(cx + x - 10, cy + 52 + breathing, cx + x + 10, cy + 56 + breathing, fill="#9aa8f0", width=2, capstyle=tk.ROUND)
+        self.canvas.create_oval(cx - 68, cy + 38, cx - 42, cy + 62, fill="#fff7fb", outline=INK, width=2)
 
     def draw_ears(self, cx: float, cy: float) -> None:
         ear_squish = max(self.squash, 0) * 12
@@ -1798,8 +1885,8 @@ class DesktopPet:
             self.canvas.create_arc(cx - 34, eye_y - 4, cx - 14, eye_y + 13, start=190, extent=150, style=tk.ARC, outline="#5a4540", width=2)
             self.canvas.create_arc(cx + 14, eye_y - 4, cx + 34, eye_y + 13, start=200, extent=150, style=tk.ARC, outline="#5a4540", width=2)
         elif expression == "excited":
-            self.canvas.create_text(cx - 25, eye_y, text="\u2605", fill="#5a4540", font=("Segoe UI Symbol", 16, "bold"))
-            self.canvas.create_text(cx + 25, eye_y, text="\u2605", fill="#5a4540", font=("Segoe UI Symbol", 16, "bold"))
+            self.canvas.create_text(cx - 25, eye_y, text="\u2605", fill="#5a4540", font=("Segoe UI Symbol", 9, "bold"))
+            self.canvas.create_text(cx + 25, eye_y, text="\u2605", fill="#5a4540", font=("Segoe UI Symbol", 9, "bold"))
         elif expression == "focused":
             self.canvas.create_line(cx - 39, eye_y - 14, cx - 14, eye_y - 9, fill="#5a4540", width=2, capstyle=tk.ROUND)
             self.canvas.create_line(cx + 14, eye_y - 9, cx + 39, eye_y - 14, fill="#5a4540", width=2, capstyle=tk.ROUND)
@@ -1872,9 +1959,9 @@ class DesktopPet:
         self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
 
     def draw_bubble(self, text: str) -> None:
-        display = self.fit_text(text, 20)
-        self.draw_speech_bubble(16, 7, 244, 56)
-        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 10, "bold"))
+        display = self.fit_text(text, 26)
+        self.draw_speech_bubble(18, 8, 242, 52)
+        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 6))
 
     def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
         fill = "#fffdfb"
@@ -1882,19 +1969,19 @@ class DesktopPet:
         highlight = "#ffffff"
         shadow = "#ead7d0"
         radius = 18
-        self.canvas.create_rectangle(x1 + 4, y1 + 4, x2 + 4, y2 + 4, fill=shadow, outline="")
-        self.canvas.create_oval(x1, y1, x1 + radius * 2, y1 + radius * 2, fill=fill, outline=outline, width=2)
-        self.canvas.create_oval(x2 - radius * 2, y1, x2, y1 + radius * 2, fill=fill, outline=outline, width=2)
-        self.canvas.create_oval(x1, y2 - radius * 2, x1 + radius * 2, y2, fill=fill, outline=outline, width=2)
-        self.canvas.create_oval(x2 - radius * 2, y2 - radius * 2, x2, y2, fill=fill, outline=outline, width=2)
+        self.canvas.create_rectangle(x1 + 3, y1 + 3, x2 + 3, y2 + 3, fill=shadow, outline="")
+        self.canvas.create_oval(x1, y1, x1 + radius * 2, y1 + radius * 2, fill=fill, outline=outline, width=1)
+        self.canvas.create_oval(x2 - radius * 2, y1, x2, y1 + radius * 2, fill=fill, outline=outline, width=1)
+        self.canvas.create_oval(x1, y2 - radius * 2, x1 + radius * 2, y2, fill=fill, outline=outline, width=1)
+        self.canvas.create_oval(x2 - radius * 2, y2 - radius * 2, x2, y2, fill=fill, outline=outline, width=1)
         self.canvas.create_rectangle(x1 + radius, y1, x2 - radius, y2, fill=fill, outline="")
         self.canvas.create_rectangle(x1, y1 + radius, x2, y2 - radius, fill=fill, outline="")
-        self.canvas.create_line(x1 + radius, y1, x2 - radius, y1, fill=outline, width=2)
-        self.canvas.create_line(x1 + radius, y2, x2 - radius, y2, fill=outline, width=2)
-        self.canvas.create_line(x1, y1 + radius, x1, y2 - radius, fill=outline, width=2)
-        self.canvas.create_line(x2, y1 + radius, x2, y2 - radius, fill=outline, width=2)
-        self.canvas.create_polygon([116, y2 - 3, 130, y2 + 15, 145, y2 - 3], fill=fill, outline=outline, width=2)
-        self.canvas.create_arc(x1 + 17, y1 + 9, x2 - 17, y2 - 8, start=22, extent=136, style=tk.ARC, outline=highlight, width=2)
+        self.canvas.create_line(x1 + radius, y1, x2 - radius, y1, fill=outline, width=1)
+        self.canvas.create_line(x1 + radius, y2, x2 - radius, y2, fill=outline, width=1)
+        self.canvas.create_line(x1, y1 + radius, x1, y2 - radius, fill=outline, width=1)
+        self.canvas.create_line(x2, y1 + radius, x2, y2 - radius, fill=outline, width=1)
+        self.canvas.create_polygon([118, y2 - 2, 130, y2 + 12, 143, y2 - 2], fill=fill, outline=outline, width=1)
+        self.canvas.create_arc(x1 + 17, y1 + 9, x2 - 17, y2 - 8, start=22, extent=136, style=tk.ARC, outline=highlight, width=1)
         self.canvas.create_oval(x1 + 15, y1 + 11, x1 + 20, y1 + 16, fill=highlight, outline="")
 
     def animate(self) -> None:
