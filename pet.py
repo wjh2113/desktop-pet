@@ -887,10 +887,6 @@ class DesktopPet:
             return
 
         screen_w = self.root.winfo_screenwidth()
-        if self.walk_timer <= 0 and random.random() < 0.008:
-            self.walk_timer = random.randint(70, 180)
-            self.walk_dx = random.choice([-2, -1, 1, 2])
-
         if self.walk_timer > 0:
             self.x += self.walk_dx
             self.walk_timer -= 1
