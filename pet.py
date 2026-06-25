@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import ctypes
+import io
 import json
 import math
 import random
+import struct
 import subprocess
 import threading
 import time
 import tkinter as tk
+import wave
 import winsound
 from ctypes import wintypes
 from dataclasses import dataclass
@@ -60,6 +63,29 @@ def format_seconds(seconds: float) -> str:
     if minutes:
         return f"{minutes}m {secs:02d}s"
     return f"{secs}s"
+
+
+class wave_open:
+    def __init__(self, buffer: io.BytesIO, sample_rate: int) -> None:
+        self.buffer = buffer
+        self.sample_rate = sample_rate
+        self.wav: wave.Wave_write | None = None
+
+    def __enter__(self):
+        self.wav = wave.open(self.buffer, "wb")
+        self.wav.setnchannels(1)
+        self.wav.setsampwidth(2)
+        self.wav.setframerate(self.sample_rate)
+
+        def write_sample(sample: int) -> None:
+            sample = max(-32768, min(32767, sample))
+            self.wav.writeframes(struct.pack("<h", sample))
+
+        return write_sample
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        if self.wav is not None:
+            self.wav.close()
 
 
 class ActivityTracker:
@@ -307,6 +333,54 @@ class DesktopPet:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def play_wave_sound(self, samples: list[int], sample_rate: int = 44100) -> None:
+        def worker() -> None:
+            try:
+                buffer = io.BytesIO()
+                with wave_open(buffer, sample_rate) as write_sample:
+                    for sample in samples:
+                        write_sample(sample)
+                winsound.PlaySound(buffer.getvalue(), winsound.SND_MEMORY)
+            except Exception:
+                winsound.MessageBeep()
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def play_drop_start_sound(self) -> None:
+        sample_rate = 44100
+        samples: list[int] = []
+        duration = 0.18
+        total = int(sample_rate * duration)
+        for index in range(total):
+            t = index / sample_rate
+            progress = index / total
+            freq = 780 - 360 * progress
+            envelope = (1 - progress) ** 1.7
+            value = math.sin(2 * math.pi * freq * t) * envelope * 5200
+            samples.append(int(value))
+        self.play_wave_sound(samples, sample_rate)
+
+    def play_bouncy_landing_sound(self, speed: float) -> None:
+        sample_rate = 44100
+        samples: list[int] = []
+
+        def add_burst(duration: float, start_freq: float, end_freq: float, volume: float, decay: float) -> None:
+            total = int(sample_rate * duration)
+            for index in range(total):
+                t = index / sample_rate
+                progress = index / max(total - 1, 1)
+                freq = start_freq + (end_freq - start_freq) * progress
+                envelope = math.exp(-decay * progress)
+                tone = math.sin(2 * math.pi * freq * t)
+                soft_click = math.sin(2 * math.pi * freq * 2.01 * t) * 0.22
+                samples.append(int((tone + soft_click) * envelope * volume))
+
+        impact = min(max(speed / 24, 0.55), 1.0)
+        add_burst(0.075, 180, 115, 12000 * impact, 5.4)
+        samples.extend([0] * int(sample_rate * 0.018))
+        add_burst(0.105, 520, 760, 7800 * impact, 4.2)
+        self.play_wave_sound(samples, sample_rate)
+
     def change_mood(self, _event: tk.Event | None = None) -> None:
         current = self.mood
         choices = [mood for mood in MOODS if mood != current]
@@ -340,7 +414,7 @@ class DesktopPet:
         self.is_sleeping = False
         self.squash = -0.18
         self.say("\u54bb\u2014\u2014\u63a5\u4f4f\u6211\uff01", 170)
-        self.play_tone(1046, 55)
+        self.play_drop_start_sound()
         self.root.geometry(f"+{self.x}+{self.y}")
 
     def nap(self) -> None:
@@ -556,16 +630,14 @@ class DesktopPet:
             self.squash = min(0.42, 0.12 + impact_speed / 80)
 
             if self.impact_cooldown <= 0:
-                self.play_tone(220, 45)
-                self.root.after(45, lambda: self.play_tone(440, 55))
+                self.play_bouncy_landing_sound(impact_speed)
                 self.impact_cooldown = 5
 
             if abs(self.drop_velocity) < 3.2:
                 self.drop_active = False
                 self.drop_velocity = 0.0
                 self.squash = 0.34
-                self.say("Duang\uff01\u843d\u5730\u6210\u529f\u3002", 170)
-                self.play_tone(660, 70)
+                self.say("boing\uff01\u843d\u5730\u6210\u529f\u3002", 170)
         else:
             self.squash = max(-0.22, -abs(self.drop_velocity) / 95)
 
