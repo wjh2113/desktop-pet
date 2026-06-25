@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import ctypes
+import hashlib
 import io
 import json
 import math
+import os
+import platform
 import random
 import struct
 import subprocess
 import threading
 import time
 import tkinter as tk
+import tkinter.messagebox as messagebox
+import urllib.error
+import urllib.request
+import uuid
 import wave
 import winsound
 from ctypes import wintypes
@@ -25,12 +32,15 @@ FPS_MS = 33
 INK = "#5a4540"
 DATA_DIR = Path(__file__).with_name("data")
 REPORTS_DIR = Path(__file__).with_name("reports")
+CLOUD_CONFIG_PATH = DATA_DIR / "cloud-config.json"
 RECOGNIZER_SCRIPT = Path(__file__).with_name("scripts") / "recognize-once.ps1"
 FOCUS_SECONDS = 25 * 60
 BREAK_SECONDS = 5 * 60
 EYE_REMINDER_SECONDS = 20 * 60
 STAND_REMINDER_SECONDS = 45 * 60
 DISTRACTION_COOLDOWN_SECONDS = 90
+CLOUD_SYNC_SECONDS = 5 * 60
+CLOUD_TIMEOUT_SECONDS = 10
 DISTRACTION_KEYWORDS = [
     "bilibili",
     "youtube",
@@ -61,6 +71,14 @@ class WindowInfo:
     process: str
 
 
+@dataclass
+class PetAction:
+    label: str
+    mood: str
+    message: str
+    keywords: tuple[str, ...]
+
+
 MOODS = [
     Mood("happy", "#ffd1dc", "#ff8fb3", "\u4eca\u5929\u4e5f\u8981\u8d34\u8d34\u3002", "smile"),
     Mood("curious", "#c7f0ff", "#6ec7e8", "\u4f60\u5728\u505a\u4ec0\u4e48\u5440\uff1f", "curious"),
@@ -77,6 +95,16 @@ SKINS = {
     "bunny": "\u5c0f\u5154\u5b50",
     "bear": "\u5c0f\u718a",
     "tiger": "\u5c0f\u8001\u864e",
+}
+PET_ACTIONS = {
+    "drink": PetAction("\u559d\u6c34", "happy", "\u5495\u561f\u5495\u561f\uff0c\u8865\u6c34\u6210\u529f\u3002", ("\u559d\u6c34", "\u6c34")),
+    "work": PetAction("\u52b3\u52a8", "focused", "\u5c0f\u5de5\u5320\u4e0a\u5c97\uff0c\u6572\u6572\u6253\u6253\u3002", ("\u52b3\u52a8", "\u5de5\u4f5c", "\u5e72\u6d3b")),
+    "plant": PetAction("\u690d\u6811", "proud", "\u57f9\u571f\u6d47\u6c34\uff0c\u79cd\u4e0b\u4e00\u70b9\u7eff\u610f\u3002", ("\u690d\u6811", "\u79cd\u6811", "\u79cd\u82b1")),
+    "home": PetAction("\u8fc7\u5bb6\u5bb6", "curious", "\u4eca\u5929\u6211\u6765\u5f53\u5c0f\u7ba1\u5bb6\u3002", ("\u8fc7\u5bb6\u5bb6", "\u5bb6\u5bb6", "\u5c0f\u7ba1\u5bb6")),
+    "study": PetAction("\u5b66\u4e60", "focused", "\u6253\u5f00\u5c0f\u4e66\u672c\uff0c\u6211\u4eec\u4e00\u8d77\u5b66\u4e00\u4f1a\u513f\u3002", ("\u5b66\u4e60", "\u8bfb\u4e66", "\u770b\u4e66")),
+    "chef": PetAction("\u53a8\u5e08", "hungry", "\u4eca\u5929\u505a\u70b9\u6696\u4e4e\u4e4e\u7684\u597d\u5403\u7684\u3002", ("\u53a8\u5e08", "\u505a\u996d", "\u70f9\u996a")),
+    "paint": PetAction("\u753b\u753b", "excited", "\u753b\u4e00\u70b9\u5f69\u8272\uff0c\u684c\u9762\u4f1a\u66f4\u53ef\u7231\u3002", ("\u753b\u753b", "\u753b\u753b", "\u753b\u5bb6")),
+    "doctor": PetAction("\u5c0f\u533b\u751f", "worried", "\u5c0f\u533b\u751f\u5de1\u8bca\uff1a\u522b\u5fd8\u4e86\u4f11\u606f\u548c\u559d\u6c34\u3002", ("\u533b\u751f", "\u770b\u75c5", "\u62a4\u58eb")),
 }
 
 
@@ -216,6 +244,158 @@ class ActivityTracker:
         return sorted(windows.values(), key=lambda item: item.get("seconds", 0), reverse=True)[:limit]
 
 
+class CloudSyncClient:
+    def __init__(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        self.config = self.load_config()
+
+    def load_config(self) -> dict:
+        if CLOUD_CONFIG_PATH.exists():
+            try:
+                data = json.loads(CLOUD_CONFIG_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+            except json.JSONDecodeError:
+                pass
+        return {
+            "endpoint": "",
+            "username": "",
+            "token": "",
+            "device_id": uuid.uuid4().hex,
+            "device_name": platform.node() or "Windows PC",
+            "last_sync_at": "",
+        }
+
+    def save_config(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        tmp = CLOUD_CONFIG_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.config, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(CLOUD_CONFIG_PATH)
+
+    def is_configured(self) -> bool:
+        return bool(self.config.get("endpoint") and self.config.get("token"))
+
+    def set_endpoint(self, endpoint: str) -> None:
+        self.config["endpoint"] = endpoint.strip().rstrip("/")
+
+    def api_url(self, path: str) -> str:
+        return f"{self.config.get('endpoint', '').rstrip('/')}{path}"
+
+    def request_json(self, path: str, payload: dict | None = None, token: str | None = None) -> dict:
+        body = None
+        method = "GET"
+        headers = {"Accept": "application/json"}
+        if payload is not None:
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            method = "POST"
+            headers["Content-Type"] = "application/json; charset=utf-8"
+        auth_token = token or self.config.get("token")
+        if auth_token:
+            headers["Authorization"] = f"Bearer {auth_token}"
+        request = urllib.request.Request(self.api_url(path), data=body, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=CLOUD_TIMEOUT_SECONDS) as response:
+                data = response.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"云端返回 {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"无法连接云端：{exc.reason}") from exc
+        if not data:
+            return {}
+        result = json.loads(data)
+        if not isinstance(result, dict):
+            raise RuntimeError("云端响应格式不正确。")
+        return result
+
+    def login(self, endpoint: str, username: str, password: str, device_name: str) -> None:
+        self.set_endpoint(endpoint)
+        payload = {
+            "username": username.strip(),
+            "password": password,
+            "device_id": self.config.get("device_id") or uuid.uuid4().hex,
+            "device_name": device_name.strip() or platform.node() or "Windows PC",
+        }
+        result = self.request_json("/api/login", payload=payload, token="")
+        token = result.get("token")
+        if not token:
+            raise RuntimeError("登录失败：云端没有返回 token。")
+        self.config.update(
+            {
+                "username": payload["username"],
+                "token": token,
+                "device_id": payload["device_id"],
+                "device_name": payload["device_name"],
+            }
+        )
+        self.save_config()
+
+    def local_files(self) -> list[dict]:
+        files: list[dict] = []
+        for folder, prefix, patterns in [
+            (DATA_DIR, "data", ["*.json"]),
+            (REPORTS_DIR, "reports", ["*.md"]),
+        ]:
+            if not folder.exists():
+                continue
+            for pattern in patterns:
+                for path in folder.glob(pattern):
+                    if path == CLOUD_CONFIG_PATH or path.suffix == ".tmp":
+                        continue
+                    try:
+                        content = path.read_text(encoding="utf-8")
+                    except UnicodeDecodeError:
+                        continue
+                    files.append(
+                        {
+                            "path": f"{prefix}/{path.name}",
+                            "mtime": path.stat().st_mtime,
+                            "content": content,
+                        }
+                    )
+        return files
+
+    def apply_remote_files(self, files: list[dict]) -> list[str]:
+        changed: list[str] = []
+        for item in files:
+            rel_path = str(item.get("path", "")).replace("\\", "/")
+            if not (rel_path.startswith("data/") or rel_path.startswith("reports/")):
+                continue
+            if "/" in rel_path[5:] and rel_path.startswith("data/"):
+                continue
+            if "/" in rel_path[8:] and rel_path.startswith("reports/"):
+                continue
+            target = Path(__file__).with_name(rel_path.split("/", 1)[0]) / rel_path.split("/", 1)[1]
+            remote_mtime = float(item.get("mtime") or 0)
+            if target.exists() and target.stat().st_mtime >= remote_mtime - 0.5:
+                continue
+            target.parent.mkdir(exist_ok=True)
+            tmp = target.with_suffix(target.suffix + ".tmp")
+            tmp.write_text(str(item.get("content", "")), encoding="utf-8")
+            tmp.replace(target)
+            if remote_mtime > 0:
+                os.utime(target, (remote_mtime, remote_mtime))
+            changed.append(rel_path)
+        return changed
+
+    def sync(self) -> tuple[int, int]:
+        if not self.is_configured():
+            raise RuntimeError("还没有配置云同步账号。")
+        payload = {
+            "device_id": self.config.get("device_id"),
+            "device_name": self.config.get("device_name"),
+            "files": self.local_files(),
+        }
+        result = self.request_json("/api/sync", payload=payload)
+        files = result.get("files", [])
+        if not isinstance(files, list):
+            raise RuntimeError("云端同步响应格式不正确。")
+        changed = self.apply_remote_files(files)
+        self.config["last_sync_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.save_config()
+        return len(payload["files"]), len(changed)
+
+
 class DesktopPet:
     def __init__(self) -> None:
         self.root = tk.Tk()
@@ -250,6 +430,8 @@ class DesktopPet:
         self.tick = 0
         self.mood = random.choice(MOODS)
         self.pet_skin = "cat"
+        self.current_action: str | None = None
+        self.action_until = 0
         self.message = self.mood.message
         self.message_until = 180
         self.mood_changed_at = time.time()
@@ -271,6 +453,10 @@ class DesktopPet:
         self.pomodoro_sessions = 0
 
         self.tracker = ActivityTracker()
+        self.cloud = CloudSyncClient()
+        self.cloud_syncing = False
+        self.cloud_dirty = False
+        self.last_cloud_sync = 0.0
         self.last_tracker_save = time.time()
         self.chat_window: tk.Toplevel | None = None
         self.stats_window: tk.Toplevel | None = None
@@ -293,6 +479,12 @@ class DesktopPet:
         for skin_id, skin_name in SKINS.items():
             skin_menu.add_command(label=skin_name, command=lambda value=skin_id: self.set_skin(value))
         self.menu.add_cascade(label="\u5207\u6362\u5f62\u8c61", menu=skin_menu)
+        action_menu = tk.Menu(self.menu, tearoff=0)
+        for action_id, action in PET_ACTIONS.items():
+            action_menu.add_command(label=action.label, command=lambda value=action_id: self.set_action(value))
+        action_menu.add_separator()
+        action_menu.add_command(label="\u6062\u590d\u65e5\u5e38", command=self.clear_action)
+        self.menu.add_cascade(label="\u5207\u6362\u52a8\u4f5c/\u89d2\u8272", menu=action_menu)
         self.menu.add_separator()
         self.menu.add_command(label="\u5f00\u59cb\u756a\u8304\u949f", command=self.start_pomodoro)
         self.menu.add_command(label="\u6682\u505c\u756a\u8304\u949f", command=self.pause_pomodoro)
@@ -302,6 +494,10 @@ class DesktopPet:
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
         self.menu.add_command(label="\u4eca\u65e5\u770b\u677f", command=self.open_stats)
         self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
+        cloud_menu = tk.Menu(self.menu, tearoff=0)
+        cloud_menu.add_command(label="\u767b\u5f55/\u914d\u7f6e", command=self.open_cloud_settings)
+        cloud_menu.add_command(label="\u7acb\u5373\u540c\u6b65", command=lambda: self.sync_cloud_async(manual=True))
+        self.menu.add_cascade(label="\u4e91\u540c\u6b65", menu=cloud_menu)
         self.menu.add_separator()
         self.menu.add_command(label="\u9000\u51fa", command=self.quit)
 
@@ -315,6 +511,8 @@ class DesktopPet:
         self.root.bind("<Escape>", lambda _event: self.quit())
         self.root.bind("<space>", lambda _event: self.drop_from_top())
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        if self.cloud.is_configured():
+            self.root.after(1500, lambda: self.sync_cloud_async(manual=False))
         self.root.after(1000, self.activity_loop)
         self.animate()
 
@@ -357,6 +555,19 @@ class DesktopPet:
     def set_skin(self, skin: str) -> None:
         self.pet_skin = skin if skin in SKINS else "cat"
         self.set_mood("excited", f"\u6362\u6210{SKINS[self.pet_skin]}\u5566\uff01", 190)
+
+    def set_action(self, action_id: str, duration: int = 900) -> None:
+        action = PET_ACTIONS.get(action_id)
+        if not action:
+            return
+        self.current_action = action_id
+        self.action_until = duration
+        self.set_mood(action.mood, action.message, 230)
+
+    def clear_action(self) -> None:
+        self.current_action = None
+        self.action_until = 0
+        self.set_mood("happy", "\u6536\u5de5\uff0c\u56de\u5230\u65e5\u5e38\u966a\u4f34\u6a21\u5f0f\u3002", 180)
 
     def toggle_panel(self) -> None:
         self.panel_visible = not self.panel_visible
@@ -595,6 +806,9 @@ class DesktopPet:
                 self.tracker.save()
                 self.save_tasks()
                 self.last_tracker_save = now
+                self.cloud_dirty = True
+            if self.cloud.is_configured() and self.cloud_dirty and now - self.last_cloud_sync > CLOUD_SYNC_SECONDS:
+                self.sync_cloud_async(manual=False)
         finally:
             self.root.after(1000, self.activity_loop)
 
@@ -637,6 +851,7 @@ class DesktopPet:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(path)
+        self.cloud_dirty = True
 
     def update_wellbeing_reminders(self) -> None:
         now = time.time()
@@ -755,6 +970,8 @@ class DesktopPet:
         lines.extend(["", "## \u840c\u5ba0\u5efa\u8bae", f"- {suggestion}", ""])
 
         report_path.write_text("\n".join(lines), encoding="utf-8")
+        self.cloud_dirty = True
+        self.sync_cloud_async(manual=False)
         self.set_mood("proud", "\u4eca\u65e5\u603b\u7ed3\u5df2\u751f\u6210\u3002", 210)
         self.speak("\u4eca\u65e5\u603b\u7ed3\u5df2\u751f\u6210\u3002")
         self.open_report_window(report_path)
@@ -773,6 +990,110 @@ class DesktopPet:
         bottom.pack(fill="x", padx=10, pady=10)
         tk.Label(bottom, text=str(report_path), fg="#7b7067").pack(side="left")
         tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+
+    def open_cloud_settings(self) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("\u4e91\u540c\u6b65")
+        win.geometry("460x330")
+        win.attributes("-topmost", True)
+        win.configure(bg="#f7f4ef")
+
+        tk.Label(win, text="\u4e91\u540c\u6b65\u767b\u5f55", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(win, text="\u5728\u591a\u53f0\u7535\u8111\u4f7f\u7528\u540c\u4e00\u4e2a\u4e91\u7aef\u5730\u5740\u548c\u8d26\u53f7\uff0c\u5373\u53ef\u5171\u4eab\u672c\u5730\u6570\u636e\u8bb0\u5f55\u3002", bg="#f7f4ef", fg="#7b7067", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+
+        form = tk.Frame(win, bg="#f7f4ef")
+        form.pack(fill="x", padx=16)
+        fields: dict[str, tk.Entry] = {}
+
+        def add_field(label: str, key: str, value: str = "", show: str | None = None) -> None:
+            row = tk.Frame(form, bg="#f7f4ef")
+            row.pack(fill="x", pady=5)
+            tk.Label(row, text=label, bg="#f7f4ef", fg="#4d3b38", width=10, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#2f2925", show=show or "", font=("Microsoft YaHei UI", 10))
+            entry.insert(0, value)
+            entry.pack(side="left", fill="x", expand=True, ipady=5)
+            fields[key] = entry
+
+        add_field("\u4e91\u7aef\u5730\u5740", "endpoint", str(self.cloud.config.get("endpoint", "")))
+        add_field("\u8d26\u53f7", "username", str(self.cloud.config.get("username", "")))
+        add_field("\u5bc6\u7801", "password", "", "*")
+        add_field("\u8bbe\u5907\u540d", "device_name", str(self.cloud.config.get("device_name", platform.node() or "Windows PC")))
+
+        status_var = tk.StringVar(value=self.cloud_status_text())
+        tk.Label(win, textvariable=status_var, bg="#f7f4ef", fg="#6b5844", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(10, 8))
+
+        def login_and_sync() -> None:
+            endpoint = fields["endpoint"].get().strip()
+            username = fields["username"].get().strip()
+            password = fields["password"].get()
+            device_name = fields["device_name"].get().strip()
+            if not endpoint or not username or not password:
+                messagebox.showwarning("\u4e91\u540c\u6b65", "\u8bf7\u586b\u5199\u4e91\u7aef\u5730\u5740\u3001\u8d26\u53f7\u548c\u5bc6\u7801\u3002")
+                return
+
+            def worker() -> None:
+                try:
+                    self.cloud.login(endpoint, username, password, device_name)
+                    uploaded, downloaded = self.cloud.sync()
+                except Exception as exc:
+                    self.root.after(0, lambda: status_var.set(f"\u767b\u5f55/\u540c\u6b65\u5931\u8d25\uff1a{exc}"))
+                    self.root.after(0, lambda: self.set_mood("worried", "\u4e91\u540c\u6b65\u6ca1\u8fde\u4e0a\uff0c\u68c0\u67e5\u4e00\u4e0b\u5730\u5740\u6216\u5bc6\u7801\u3002", 230))
+                else:
+                    self.last_cloud_sync = time.time()
+                    self.cloud_dirty = False
+                    self.root.after(0, self.reload_local_day)
+                    self.root.after(0, lambda: status_var.set(f"\u5df2\u767b\u5f55\u5e76\u540c\u6b65\uff1a\u4e0a\u4f20 {uploaded} \u4e2a\uff0c\u66f4\u65b0 {downloaded} \u4e2a\u3002"))
+                    self.root.after(0, lambda: self.set_mood("proud", "\u4e91\u540c\u6b65\u5df2\u8fde\u4e0a\u3002", 210))
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        bottom = tk.Frame(win, bg="#f7f4ef")
+        bottom.pack(fill="x", padx=16, pady=12)
+        tk.Button(bottom, text="\u767b\u5f55\u5e76\u540c\u6b65", command=login_and_sync).pack(side="left")
+        tk.Button(bottom, text="\u7acb\u5373\u540c\u6b65", command=lambda: self.sync_cloud_async(manual=True)).pack(side="left", padx=8)
+        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+
+    def cloud_status_text(self) -> str:
+        if not self.cloud.is_configured():
+            return "\u72b6\u6001\uff1a\u672a\u767b\u5f55\u3002"
+        last_sync = self.cloud.config.get("last_sync_at") or "\u5c1a\u672a\u540c\u6b65"
+        return f"\u72b6\u6001\uff1a{self.cloud.config.get('username')} @ {self.cloud.config.get('endpoint')}\uff0c\u4e0a\u6b21\u540c\u6b65 {last_sync}\u3002"
+
+    def reload_local_day(self) -> None:
+        self.tasks = self.load_tasks()
+        self.tracker.path = DATA_DIR / f"activity-{self.tracker.current_day}.json"
+        self.tracker.data = self.tracker.load_day()
+
+    def sync_cloud_async(self, manual: bool = False) -> None:
+        if self.cloud_syncing:
+            if manual:
+                self.say("\u4e91\u540c\u6b65\u6b63\u5728\u8fdb\u884c\u4e2d\u3002", 160)
+            return
+        if not self.cloud.is_configured():
+            if manual:
+                self.open_cloud_settings()
+            return
+        self.cloud_syncing = True
+        if manual:
+            self.say("\u6b63\u5728\u540c\u6b65\u4e91\u7aef\u6570\u636e\u3002", 180)
+
+        def worker() -> None:
+            try:
+                self.tracker.save()
+                self.save_tasks()
+                uploaded, downloaded = self.cloud.sync()
+            except Exception as exc:
+                self.root.after(0, lambda: self.set_mood("worried", f"\u4e91\u540c\u6b65\u5931\u8d25\uff1a{exc}", 260))
+            else:
+                self.last_cloud_sync = time.time()
+                self.cloud_dirty = False
+                self.root.after(0, self.reload_local_day)
+                if manual:
+                    self.root.after(0, lambda: self.set_mood("proud", f"\u540c\u6b65\u5b8c\u6210\uff1a\u4e0a\u4f20 {uploaded} \u4e2a\uff0c\u66f4\u65b0 {downloaded} \u4e2a\u3002", 230))
+            finally:
+                self.cloud_syncing = False
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def open_chat(self) -> None:
         if self.chat_window and self.chat_window.winfo_exists():
@@ -927,6 +1248,13 @@ class DesktopPet:
         if "\u7761" in command_text or "\u4f11\u606f" in command_text:
             self.nap()
             return "\u597d\u7684\uff0c\u6211\u5148\u5b89\u9759\u4f11\u606f\u4e00\u4f1a\u513f\u3002"
+        if "\u65e5\u5e38" in command_text or "\u6062\u590d" in command_text:
+            self.clear_action()
+            return "\u597d\uff0c\u6211\u56de\u5230\u65e5\u5e38\u72b6\u6001\u3002"
+        for action_id, action in PET_ACTIONS.items():
+            if any(keyword in command_text for keyword in action.keywords):
+                self.set_action(action_id)
+                return f"\u597d\uff0c\u6211\u6765\u8868\u6f14{action.label}\u3002"
         if "\u732b" in command_text:
             self.set_skin("cat")
             return "\u5df2\u5207\u6362\u6210\u732b\u732b\u3002"
@@ -1225,14 +1553,21 @@ class DesktopPet:
         self.draw_shadow(cx, cy)
         self.draw_tail(cx, cy, wag)
         self.draw_body(cx, cy)
+        self.draw_action_body(cx, cy, wag)
         self.draw_ears(cx, cy)
+        self.draw_action_hat(cx, cy, wag)
         self.draw_face(cx, cy, blink)
         self.draw_paws(cx, cy)
+        self.draw_action_props(cx, cy, wag)
         self.draw_status()
 
         if self.message_until > 0:
             self.draw_bubble(self.message)
             self.message_until -= 1
+        if self.action_until > 0:
+            self.action_until -= 1
+            if self.action_until == 0:
+                self.current_action = None
 
         if self.is_sleeping:
             z_y = 44 + math.sin(self.tick / 10) * 5
@@ -1313,6 +1648,119 @@ class DesktopPet:
         self.canvas.create_oval(cx - body_w, cy - body_top, cx + body_w, cy + body_bottom, fill=self.mood.body, outline=INK, width=2)
         self.canvas.create_oval(cx - body_w + 18, cy - body_top + 14, cx - body_w + 43, cy - body_top + 33, fill="#ffffff", outline="", stipple="gray25")
         self.canvas.create_oval(cx - belly_w, cy + 4, cx + belly_w, cy + 70 * (1 - self.squash * 0.18), fill="#fff8fb", outline="")
+
+    def draw_action_body(self, cx: float, cy: float, wag: float) -> None:
+        action = self.current_action
+        if not action:
+            return
+        if action == "work":
+            self.canvas.create_arc(cx - 50, cy - 20, cx + 50, cy + 82, start=200, extent=140, fill="#f7c948", outline=INK, width=2)
+            self.canvas.create_line(cx - 28, cy + 16, cx + 24, cy + 56, fill="#8a5a2b", width=3, capstyle=tk.ROUND)
+        elif action == "plant":
+            self.canvas.create_arc(cx - 48, cy - 16, cx + 48, cy + 80, start=200, extent=140, fill="#78c257", outline=INK, width=2)
+            self.canvas.create_line(cx - 38, cy + 30, cx + 40, cy + 30, fill="#4f8f45", width=2)
+        elif action == "home":
+            self.canvas.create_arc(cx - 50, cy - 17, cx + 50, cy + 81, start=200, extent=140, fill="#ffc8dd", outline=INK, width=2)
+            self.canvas.create_oval(cx - 16, cy + 24, cx + 16, cy + 48, fill="#fff7fb", outline="#d68fa4", width=2)
+        elif action == "study":
+            self.canvas.create_arc(cx - 49, cy - 18, cx + 49, cy + 80, start=200, extent=140, fill="#9fd3ff", outline=INK, width=2)
+            self.canvas.create_line(cx - 22, cy + 18, cx + 22, cy + 18, fill="#35658b", width=2)
+        elif action == "chef":
+            self.canvas.create_arc(cx - 48, cy - 18, cx + 48, cy + 81, start=200, extent=140, fill="#ffffff", outline=INK, width=2)
+            for x in [cx - 9, cx + 9]:
+                self.canvas.create_oval(x - 2, cy + 17, x + 2, cy + 21, fill=INK, outline="")
+        elif action == "paint":
+            self.canvas.create_arc(cx - 50, cy - 17, cx + 50, cy + 80, start=200, extent=140, fill="#d7c2ff", outline=INK, width=2)
+            for x, color in [(cx - 20, "#e45756"), (cx, "#54a24b"), (cx + 20, "#4c78a8")]:
+                self.canvas.create_oval(x - 4, cy + 28, x + 4, cy + 36, fill=color, outline="")
+        elif action == "doctor":
+            self.canvas.create_arc(cx - 50, cy - 18, cx + 50, cy + 81, start=200, extent=140, fill="#f5fbff", outline=INK, width=2)
+            self.canvas.create_line(cx, cy + 19, cx, cy + 43, fill="#e45756", width=4, capstyle=tk.ROUND)
+            self.canvas.create_line(cx - 12, cy + 31, cx + 12, cy + 31, fill="#e45756", width=4, capstyle=tk.ROUND)
+        elif action == "drink":
+            self.canvas.create_arc(cx - 46, cy - 15, cx + 46, cy + 78, start=205, extent=130, fill="#e8f7ff", outline=INK, width=2)
+
+    def draw_action_hat(self, cx: float, cy: float, wag: float) -> None:
+        action = self.current_action
+        if not action:
+            return
+        if action == "work":
+            self.canvas.create_arc(cx - 48, cy - 74, cx + 48, cy - 22, start=0, extent=180, fill="#f7c948", outline=INK, width=2)
+            self.canvas.create_rectangle(cx - 52, cy - 49, cx + 52, cy - 39, fill="#f7c948", outline=INK, width=2)
+        elif action == "plant":
+            self.canvas.create_polygon([cx - 44, cy - 54, cx + 44, cy - 54, cx + 24, cy - 74, cx - 24, cy - 74], fill="#caa66a", outline=INK, width=2)
+            self.canvas.create_line(cx - 50, cy - 54, cx + 50, cy - 54, fill=INK, width=2)
+        elif action == "home":
+            self.canvas.create_polygon([cx - 34, cy - 59, cx + 34, cy - 59, cx, cy - 82], fill="#ff8fb3", outline=INK, width=2)
+            self.canvas.create_oval(cx - 8, cy - 87, cx + 8, cy - 72, fill="#fff7fb", outline=INK, width=2)
+        elif action == "study":
+            self.canvas.create_rectangle(cx - 42, cy - 72, cx + 42, cy - 57, fill="#2f3d4a", outline=INK, width=2)
+            self.canvas.create_polygon([cx + 42, cy - 64, cx + 63, cy - 56, cx + 42, cy - 49], fill="#2f3d4a", outline=INK, width=2)
+            self.canvas.create_line(cx + 60, cy - 55, cx + 60, cy - 33 + wag * 0.08, fill="#f58518", width=2)
+        elif action == "chef":
+            for x, y, size in [(cx - 22, cy - 76, 20), (cx, cy - 84, 24), (cx + 22, cy - 76, 20)]:
+                self.canvas.create_oval(x - size, y - size, x + size, y + size, fill="#ffffff", outline=INK, width=2)
+            self.canvas.create_rectangle(cx - 38, cy - 70, cx + 38, cy - 46, fill="#ffffff", outline=INK, width=2)
+        elif action == "paint":
+            self.canvas.create_polygon([cx - 42, cy - 53, cx + 42, cy - 61, cx + 30, cy - 76, cx - 28, cy - 70], fill="#b279a2", outline=INK, width=2)
+            self.canvas.create_oval(cx + 20, cy - 72, cx + 36, cy - 58, fill="#f58518", outline="")
+        elif action == "doctor":
+            self.canvas.create_rectangle(cx - 38, cy - 69, cx + 38, cy - 51, fill="#ffffff", outline=INK, width=2)
+            self.canvas.create_line(cx, cy - 67, cx, cy - 53, fill="#e45756", width=3)
+            self.canvas.create_line(cx - 8, cy - 60, cx + 8, cy - 60, fill="#e45756", width=3)
+
+    def draw_action_props(self, cx: float, cy: float, wag: float) -> None:
+        action = self.current_action
+        if not action:
+            return
+        arm = math.sin(self.tick / 6) * 4
+        if action == "drink":
+            self.canvas.create_rectangle(cx + 38, cy + 8 + arm, cx + 66, cy + 50 + arm, fill="#8ed7ff", outline=INK, width=2)
+            self.canvas.create_arc(cx + 59, cy + 18 + arm, cx + 80, cy + 42 + arm, start=270, extent=180, style=tk.ARC, outline=INK, width=2)
+            self.canvas.create_line(cx + 28, cy + 35, cx + 43, cy + 23 + arm, fill=INK, width=3, capstyle=tk.ROUND)
+            self.canvas.create_text(cx + 52, cy + 66, text="\u6c34", fill="#4c78a8", font=("Microsoft YaHei UI", 10, "bold"))
+        elif action == "work":
+            self.canvas.create_line(cx + 34, cy + 20, cx + 70, cy - 16 + arm, fill="#8a5a2b", width=4, capstyle=tk.ROUND)
+            self.canvas.create_polygon([cx + 64, cy - 22 + arm, cx + 90, cy - 12 + arm, cx + 80, cy + 6 + arm, cx + 57, cy - 4 + arm], fill="#9aa3ad", outline=INK, width=2)
+            self.canvas.create_line(cx - 36, cy + 35, cx - 60, cy + 55, fill=INK, width=3, capstyle=tk.ROUND)
+        elif action == "plant":
+            self.canvas.create_rectangle(cx + 44, cy + 43, cx + 85, cy + 69, fill="#c77943", outline=INK, width=2)
+            self.canvas.create_arc(cx + 39, cy + 32, cx + 90, cy + 62, start=0, extent=180, fill="#8a5a2b", outline=INK, width=2)
+            self.canvas.create_line(cx + 64, cy + 36, cx + 64, cy - 2 + arm, fill="#3f8f46", width=4, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx + 46, cy + 4 + arm, cx + 66, cy + 24 + arm, fill="#78c257", outline="#3f8f46", width=2)
+            self.canvas.create_oval(cx + 62, cy - 2 + arm, cx + 84, cy + 18 + arm, fill="#78c257", outline="#3f8f46", width=2)
+            self.canvas.create_line(cx - 36, cy + 30, cx - 64, cy + 58, fill="#6b5844", width=4, capstyle=tk.ROUND)
+            self.canvas.create_polygon([cx - 70, cy + 58, cx - 54, cy + 67, cx - 58, cy + 43], fill="#9aa3ad", outline=INK, width=2)
+        elif action == "home":
+            self.canvas.create_rectangle(cx + 44, cy + 17, cx + 92, cy + 68, fill="#fff7ea", outline=INK, width=2)
+            self.canvas.create_polygon([cx + 38, cy + 18, cx + 68, cy - 9 + arm, cx + 98, cy + 18], fill="#e45756", outline=INK, width=2)
+            self.canvas.create_rectangle(cx + 63, cy + 42, cx + 76, cy + 68, fill="#d6b08a", outline=INK, width=2)
+            self.canvas.create_rectangle(cx + 51, cy + 28, cx + 61, cy + 39, fill="#9fd3ff", outline=INK, width=1)
+            self.canvas.create_line(cx - 32, cy + 34, cx - 58, cy + 44 + arm, fill=INK, width=3, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 72, cy + 35 + arm, cx - 52, cy + 55 + arm, fill="#ffdf6e", outline=INK, width=2)
+        elif action == "study":
+            self.canvas.create_polygon([cx - 58, cy + 34, cx - 5, cy + 47, cx - 5, cy + 82, cx - 58, cy + 68], fill="#ffffff", outline=INK, width=2)
+            self.canvas.create_polygon([cx + 5, cy + 47, cx + 58, cy + 34, cx + 58, cy + 68, cx + 5, cy + 82], fill="#fff7ea", outline=INK, width=2)
+            self.canvas.create_line(cx, cy + 48, cx, cy + 81, fill="#d8d1c7", width=2)
+            self.canvas.create_line(cx - 48, cy + 48, cx - 14, cy + 57, fill="#7b7067", width=2)
+            self.canvas.create_line(cx + 16, cy + 57, cx + 48, cy + 49, fill="#7b7067", width=2)
+        elif action == "chef":
+            self.canvas.create_oval(cx + 37, cy + 37 + arm, cx + 88, cy + 66 + arm, fill="#9aa3ad", outline=INK, width=2)
+            self.canvas.create_line(cx + 32, cy + 52, cx + 45, cy + 50 + arm, fill=INK, width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx - 34, cy + 22, cx - 66, cy + 52, fill="#8a5a2b", width=4, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 78, cy + 43, cx - 54, cy + 66, fill="#f7c948", outline=INK, width=2)
+        elif action == "paint":
+            self.canvas.create_oval(cx - 88, cy + 26, cx - 38, cy + 64, fill="#fff7ea", outline=INK, width=2)
+            for px, py, color in [(-72, 44, "#e45756"), (-60, 36, "#54a24b"), (-51, 51, "#4c78a8"), (-70, 56, "#f58518")]:
+                self.canvas.create_oval(cx + px - 4, cy + py - 4, cx + px + 4, cy + py + 4, fill=color, outline="")
+            self.canvas.create_line(cx + 30, cy + 25, cx + 72, cy - 8 + arm, fill="#8a5a2b", width=3, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx + 67, cy - 14 + arm, cx + 82, cy + 1 + arm, fill="#54a24b", outline=INK, width=1)
+        elif action == "doctor":
+            self.canvas.create_oval(cx + 52, cy + 12 + arm, cx + 76, cy + 36 + arm, fill="#c7f0ff", outline=INK, width=2)
+            self.canvas.create_line(cx + 31, cy + 26, cx + 55, cy + 24 + arm, fill=INK, width=3, capstyle=tk.ROUND)
+            self.canvas.create_rectangle(cx - 76, cy + 35, cx - 38, cy + 67, fill="#ffffff", outline=INK, width=2)
+            self.canvas.create_line(cx - 57, cy + 43, cx - 57, cy + 59, fill="#e45756", width=3)
+            self.canvas.create_line(cx - 65, cy + 51, cx - 49, cy + 51, fill="#e45756", width=3)
 
     def draw_ears(self, cx: float, cy: float) -> None:
         ear_squish = max(self.squash, 0) * 12
