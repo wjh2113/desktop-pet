@@ -33,6 +33,7 @@ INK = "#5a4540"
 DATA_DIR = Path(__file__).with_name("data")
 REPORTS_DIR = Path(__file__).with_name("reports")
 CLOUD_CONFIG_PATH = DATA_DIR / "cloud-config.json"
+DEEPSEEK_CONFIG_PATH = DATA_DIR / "deepseek-config.json"
 RECOGNIZER_SCRIPT = Path(__file__).with_name("scripts") / "recognize-once.ps1"
 FOCUS_SECONDS = 25 * 60
 BREAK_SECONDS = 5 * 60
@@ -341,7 +342,7 @@ class CloudSyncClient:
                 continue
             for pattern in patterns:
                 for path in folder.glob(pattern):
-                    if path == CLOUD_CONFIG_PATH or path.suffix == ".tmp":
+                    if path in {CLOUD_CONFIG_PATH, DEEPSEEK_CONFIG_PATH} or path.suffix == ".tmp":
                         continue
                     try:
                         content = path.read_text(encoding="utf-8")
@@ -395,6 +396,69 @@ class CloudSyncClient:
         self.config["last_sync_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
         self.save_config()
         return len(payload["files"]), len(changed)
+
+
+class DeepSeekChatClient:
+    def __init__(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        self.config = self.load_config()
+
+    def load_config(self) -> dict:
+        if DEEPSEEK_CONFIG_PATH.exists():
+            try:
+                data = json.loads(DEEPSEEK_CONFIG_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return {
+                        "base_url": str(data.get("base_url") or "https://api.deepseek.com").rstrip("/"),
+                        "api_key": str(data.get("api_key") or ""),
+                        "model": str(data.get("model") or "deepseek-v4-flash"),
+                    }
+            except json.JSONDecodeError:
+                pass
+        return {"base_url": "https://api.deepseek.com", "api_key": "", "model": "deepseek-v4-flash"}
+
+    def save_config(self) -> None:
+        DATA_DIR.mkdir(exist_ok=True)
+        tmp = DEEPSEEK_CONFIG_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(self.config, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(DEEPSEEK_CONFIG_PATH)
+
+    def is_configured(self) -> bool:
+        return bool(self.config.get("api_key"))
+
+    def chat(self, system_prompt: str, messages: list[dict]) -> str:
+        if not self.is_configured():
+            raise RuntimeError("还没有配置 DeepSeek API Key。")
+        payload = {
+            "model": self.config.get("model") or "deepseek-v4-flash",
+            "messages": [{"role": "system", "content": system_prompt}] + messages,
+            "stream": False,
+            "temperature": 0.8,
+            "max_tokens": 220,
+        }
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": f"Bearer {self.config.get('api_key')}",
+        }
+        url = f"{str(self.config.get('base_url') or 'https://api.deepseek.com').rstrip('/')}/chat/completions"
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                result = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"DeepSeek 返回 {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"无法连接 DeepSeek：{exc.reason}") from exc
+        choices = result.get("choices", [])
+        if not choices:
+            raise RuntimeError("DeepSeek 没有返回回复。")
+        message = choices[0].get("message", {})
+        content = str(message.get("content") or "").strip()
+        if not content:
+            raise RuntimeError("DeepSeek 回复为空。")
+        return content
 
 
 class DesktopPet:
@@ -455,6 +519,7 @@ class DesktopPet:
 
         self.tracker = ActivityTracker()
         self.cloud = CloudSyncClient()
+        self.deepseek = DeepSeekChatClient()
         self.cloud_syncing = False
         self.cloud_dirty = False
         self.last_cloud_sync = 0.0
@@ -491,6 +556,7 @@ class DesktopPet:
         self.menu.add_checkbutton(label="\u756a\u8304\u949f", variable=self.pomodoro_widget_visible, command=self.toggle_pomodoro_widget)
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
+        self.menu.add_command(label="DeepSeek \u914d\u7f6e", command=self.open_deepseek_settings)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
         self.menu.add_command(label="\u4eca\u65e5\u770b\u677f", command=self.open_stats)
         self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
@@ -1206,6 +1272,54 @@ class DesktopPet:
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def open_deepseek_settings(self) -> None:
+        win = tk.Toplevel(self.root)
+        win.title("DeepSeek \u914d\u7f6e")
+        win.geometry("470x300")
+        win.attributes("-topmost", True)
+        win.attributes("-alpha", 0.94)
+        glass_bg = "#f8fbff"
+        win.configure(bg=glass_bg)
+
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
+        frame.pack(fill="both", expand=True)
+        tk.Label(frame, text="DeepSeek \u5bf9\u8bdd\u914d\u7f6e", bg=glass_bg, fg="#23313f", font=("Microsoft YaHei UI", 15, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(frame, text="\u4fdd\u5b58\u5728\u672c\u673a data/deepseek-config.json\uff0c\u7528\u4e8e\u548c\u840c\u5ba0\u5bf9\u8bdd\u65f6\u8c03\u7528 DeepSeek\u3002", bg=glass_bg, fg="#6b7c8c", wraplength=430, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+
+        form = tk.Frame(frame, bg=glass_bg)
+        form.pack(fill="x", padx=16)
+        fields: dict[str, tk.Entry] = {}
+
+        def add_field(label: str, key: str, value: str = "", show: str | None = None) -> None:
+            row = tk.Frame(form, bg=glass_bg)
+            row.pack(fill="x", pady=5)
+            tk.Label(row, text=label, bg=glass_bg, fg="#40505f", width=9, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", show=show or "", font=("Microsoft YaHei UI", 10))
+            entry.insert(0, value)
+            entry.pack(side="left", fill="x", expand=True, ipady=6)
+            fields[key] = entry
+
+        add_field("API Key", "api_key", str(self.deepseek.config.get("api_key", "")), "*")
+        add_field("\u6a21\u578b", "model", str(self.deepseek.config.get("model", "deepseek-v4-flash")))
+        add_field("\u5730\u5740", "base_url", str(self.deepseek.config.get("base_url", "https://api.deepseek.com")))
+
+        status_var = tk.StringVar(value="\u5df2\u914d\u7f6e" if self.deepseek.is_configured() else "\u672a\u914d\u7f6e")
+        tk.Label(frame, textvariable=status_var, bg=glass_bg, fg="#6b7c8c").pack(anchor="w", padx=16, pady=(8, 0))
+
+        def save() -> None:
+            self.deepseek.config["api_key"] = fields["api_key"].get().strip()
+            self.deepseek.config["model"] = fields["model"].get().strip() or "deepseek-v4-flash"
+            self.deepseek.config["base_url"] = fields["base_url"].get().strip().rstrip("/") or "https://api.deepseek.com"
+            self.deepseek.save_config()
+            status_var.set("\u5df2\u4fdd\u5b58\uff0c\u4e0b\u6b21\u804a\u5929\u5c06\u4f7f\u7528 DeepSeek\u3002" if self.deepseek.is_configured() else "\u5df2\u4fdd\u5b58\uff0c\u4f46 API Key \u4e3a\u7a7a\u3002")
+            self.set_mood("proud", "DeepSeek \u914d\u7f6e\u5df2\u4fdd\u5b58\u3002", 180)
+
+        bottom = tk.Frame(frame, bg=glass_bg)
+        bottom.pack(fill="x", padx=16, pady=14)
+        button_style = {"relief": "flat", "bd": 0, "bg": "#ffffff", "fg": "#40505f", "activebackground": "#eaf3fb", "font": ("Microsoft YaHei UI", 9), "cursor": "hand2"}
+        tk.Button(bottom, text="\u4fdd\u5b58", command=save, width=8, **button_style).pack(side="left")
+        tk.Button(bottom, text="\u5173\u95ed", command=win.destroy, width=8, **button_style).pack(side="right")
+
     def open_chat(self) -> None:
         if self.chat_window and self.chat_window.winfo_exists():
             self.chat_window.lift()
@@ -1234,7 +1348,8 @@ class DesktopPet:
         header.pack(fill="x", padx=12, pady=(9, 4))
         tk.Label(header, text="\u25cf", bg=glass_bg, fg="#ff8fb3", font=("Segoe UI", 7)).pack(side="left", padx=(0, 5))
         tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg=glass_bg, fg="#40505f", font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
-        tk.Label(header, text="\u672c\u5730\u56de\u590d", bg=glass_bg, fg="#8da0af", font=("Microsoft YaHei UI", 7)).pack(side="left", padx=8)
+        provider_label = "DeepSeek" if self.deepseek.is_configured() else "\u672c\u5730\u56de\u590d"
+        tk.Label(header, text=provider_label, bg=glass_bg, fg="#8da0af", font=("Microsoft YaHei UI", 7)).pack(side="left", padx=8)
         tk.Button(header, text="\u00d7", command=win.destroy, width=2, relief="flat", bd=0, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", cursor="hand2").pack(side="right")
         drag_offset = {"x": 0, "y": 0}
 
@@ -1274,6 +1389,7 @@ class DesktopPet:
 
         buttons = tk.Frame(frame, bg=glass_bg)
         buttons.pack(fill="x", padx=10, pady=(0, 9))
+        chat_messages: list[dict] = []
 
         def add_line(who: str, text: str) -> None:
             tag = "system"
@@ -1297,9 +1413,34 @@ class DesktopPet:
 
         def handle_user_text(text: str) -> None:
             add_line("\u4f60", text)
-            reply = self.pet_reply(text)
-            add_line("\u840c\u5ba0", reply)
-            self.speak(reply)
+            command_reply = self.handle_command(text)
+            if command_reply:
+                add_line("\u840c\u5ba0", command_reply)
+                self.speak(command_reply)
+                return
+            if not self.deepseek.is_configured():
+                reply = self.casual_reply(text)
+                add_line("\u840c\u5ba0", reply)
+                self.speak(reply)
+                return
+
+            add_line("\u7cfb\u7edf", "\u6b63\u5728\u8bf7 DeepSeek \u601d\u8003...")
+            chat_messages.append({"role": "user", "content": text})
+
+            def worker() -> None:
+                try:
+                    reply = self.deepseek.chat(self.pet_system_prompt(), chat_messages[-8:])
+                except Exception as exc:
+                    reply = f"DeepSeek \u8fde\u63a5\u5931\u8d25\uff1a{exc}"
+                    self.root.after(0, lambda: add_line("\u7cfb\u7edf", reply))
+                    self.root.after(0, lambda: self.say("\u6211\u8fde\u4e0d\u4e0a DeepSeek\uff0c\u5148\u7528\u672c\u5730\u72b6\u6001\u966a\u4f60\u3002", 220))
+                    return
+                chat_messages.append({"role": "assistant", "content": reply})
+                del chat_messages[:-8]
+                self.root.after(0, lambda: add_line("\u840c\u5ba0", reply))
+                self.root.after(0, lambda: self.speak(reply))
+
+            threading.Thread(target=worker, daemon=True).start()
 
         def voice_input() -> None:
             voice_button.configure(state="disabled", text="\u6b63\u5728\u542c...")
@@ -1332,6 +1473,50 @@ class DesktopPet:
         if command_reply:
             return command_reply
         return self.casual_reply(text)
+
+    def pet_system_prompt(self) -> str:
+        scene = "\u65e5\u5e38\u966a\u4f34"
+        tone = "\u6e29\u67d4\u3001\u77ed\u53e5\u3001\u6709\u60c5\u7eea\u4ef7\u503c\uff0c\u50cf\u4e00\u53ea\u684c\u9762\u5c0f\u4f19\u4f34\u3002"
+        if self.is_sleeping:
+            scene = "\u7761\u89c9\u4f11\u606f"
+            tone = "\u8f7b\u58f0\u3001\u6162\u4e00\u70b9\u3001\u5b89\u629a\u578b\uff0c\u4e0d\u8981\u5174\u594b\u6216\u957f\u7bc7\u8f93\u51fa\u3002"
+        elif self.pomodoro_running and self.pomodoro_mode == "focus":
+            scene = "\u756a\u8304\u949f\u4e13\u6ce8"
+            tone = "\u514b\u5236\u3001\u7a33\u5b9a\u3001\u5c11\u6253\u6270\uff0c\u5e2e\u7528\u6237\u56de\u5230\u5f53\u524d\u4efb\u52a1\u3002"
+        elif self.pomodoro_running and self.pomodoro_mode == "break":
+            scene = "\u756a\u8304\u949f\u4f11\u606f"
+            tone = "\u653e\u677e\u3001\u63d0\u9192\u559d\u6c34\u548c\u6d3b\u52a8\uff0c\u4e0d\u8981\u50ac\u4fc3\u5de5\u4f5c\u3002"
+        elif self.current_action == "teacher":
+            scene = "\u5c0f\u8001\u5e08\u8bb2\u8bfe"
+            tone = "\u50cf\u53ef\u7231\u5c0f\u8001\u5e08\uff0c\u628a\u4e8b\u60c5\u62c6\u6210\u4e00\u5c0f\u6b65\uff0c\u591a\u9f13\u52b1\u5c11\u8bf4\u6559\u3002"
+        elif self.current_action == "plant":
+            scene = "\u690d\u6811\u966a\u4f34"
+            tone = "\u7528\u79cd\u5b50\u3001\u6d47\u6c34\u3001\u957f\u5927\u7684\u6bd4\u55bb\uff0c\u8ba9\u7528\u6237\u89c9\u5f97\u5c0f\u6b65\u4e5f\u7b97\u6570\u3002"
+        elif self.current_action == "home":
+            scene = "\u8fc7\u5bb6\u5bb6"
+            tone = "\u50cf\u8f7b\u677e\u7684\u5c0f\u7ba1\u5bb6\uff0c\u6709\u4e00\u70b9\u6e29\u99a8\u751f\u6d3b\u611f\uff0c\u5e2e\u7528\u6237\u6574\u7406\u601d\u8def\u3002"
+        elif self.current_action == "study":
+            scene = "\u966a\u5b66\u4e60"
+            tone = "\u4e13\u6ce8\u3001\u8010\u5fc3\uff0c\u5e2e\u7528\u6237\u627e\u5230\u4e0b\u4e00\u4e2a\u53ef\u6267\u884c\u52a8\u4f5c\u3002"
+        elif self.current_action == "drink":
+            scene = "\u559d\u6c34\u63d0\u9192"
+            tone = "\u8f7b\u5feb\u3001\u7167\u987e\u578b\uff0c\u53ef\u4ee5\u63d0\u9192\u8865\u6c34\u548c\u653e\u677e\u773c\u775b\u3002"
+        elif self.current_action == "doctor":
+            scene = "\u5c0f\u533b\u751f"
+            tone = "\u5173\u5fc3\u5065\u5eb7\u4f46\u4e0d\u505a\u533b\u7597\u8bca\u65ad\uff0c\u63d0\u9192\u4f11\u606f\u3001\u559d\u6c34\u3001\u6d3b\u52a8\u3002"
+        elif self.current_action == "chef":
+            scene = "\u5c0f\u53a8\u5e08"
+            tone = "\u6696\u4e4e\u4e4e\u3001\u6709\u80fd\u91cf\u611f\uff0c\u7528\u505a\u996d\u548c\u8865\u7ed9\u6bd4\u55bb\u9f13\u52b1\u7528\u6237\u3002"
+        elif self.current_action == "paint":
+            scene = "\u753b\u753b\u521b\u4f5c"
+            tone = "\u6709\u60f3\u8c61\u529b\u3001\u8f7b\u76c8\uff0c\u9f13\u52b1\u7528\u6237\u628a\u60f3\u6cd5\u753b\u6210\u4e00\u5c0f\u5757\u3002"
+
+        return (
+            "\u4f60\u662f\u4e00\u53ea Windows \u684c\u9762\u840c\u5ba0\uff0c\u540d\u5b57\u53eb\u201c\u840c\u5ba0\u201d\uff0c\u6b63\u5728\u966a\u4f34\u7528\u6237\u5de5\u4f5c\u548c\u751f\u6d3b\u3002\n"
+            f"\u5f53\u524d\u573a\u666f\uff1a{scene}\u3002\n"
+            f"\u8bed\u6c14\uff1a{tone}\n"
+            "\u56de\u590d\u8981\u6c42\uff1a\u7528\u7b80\u4f53\u4e2d\u6587\uff0c1-3 \u53e5\u4e3a\u4e3b\uff0c\u4e0d\u8981\u5199\u957f\u7bc7\u5927\u8bba\uff1b\u8981\u6709\u966a\u4f34\u611f\u548c\u5177\u4f53\u5c0f\u5efa\u8bae\uff1b\u4e0d\u8981\u58f0\u79f0\u81ea\u5df1\u662f\u5927\u6a21\u578b\u6216 AI\uff1b\u4e0d\u8981\u7f16\u9020\u5df2\u7ecf\u6267\u884c\u4e86\u7a0b\u5e8f\u529f\u80fd\u3002"
+        )
 
     def handle_command(self, text: str) -> str:
         lowered = text.lower()
