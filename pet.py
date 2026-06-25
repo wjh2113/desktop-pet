@@ -198,8 +198,11 @@ class DesktopPet:
         self.root.configure(bg=TRANSPARENT)
         self.root.wm_attributes("-transparentcolor", TRANSPARENT)
 
-        self.width = 260
-        self.height = 230
+        self.ui_scale = 0.82
+        self.logical_width = 260
+        self.logical_height = 230
+        self.width = int(self.logical_width * self.ui_scale)
+        self.height = int(self.logical_height * self.ui_scale)
         self.canvas = tk.Canvas(self.root, width=self.width, height=self.height, bg=TRANSPARENT, highlightthickness=0)
         self.canvas.pack()
 
@@ -923,6 +926,8 @@ class DesktopPet:
             z_y = 44 + math.sin(self.tick / 10) * 5
             self.canvas.create_text(188, z_y, text="Z", fill="#7667d6", font=("Segoe UI", 15, "bold"))
             self.canvas.create_text(204, z_y - 14, text="z", fill="#7667d6", font=("Segoe UI", 11, "bold"))
+
+        self.canvas.scale("all", 0, 0, self.ui_scale, self.ui_scale)
 
     def draw_status(self) -> None:
         label = self.pomodoro_label()
