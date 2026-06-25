@@ -1214,7 +1214,7 @@ class DesktopPet:
         win = tk.Toplevel(self.root)
         self.chat_window = win
         win.title("\u548c\u684c\u9762\u840c\u5ba0\u5bf9\u8bdd")
-        chat_w, chat_h = 310, 230
+        chat_w, chat_h = 330, 250
         screen_h = self.root.winfo_screenheight()
         chat_x = min(max(10, self.x - 86), self.root.winfo_screenwidth() - chat_w - 10)
         chat_y = self.y + self.height + 10
@@ -1223,13 +1223,19 @@ class DesktopPet:
         win.geometry(f"{chat_w}x{chat_h}+{chat_x}+{chat_y}")
         win.overrideredirect(True)
         win.attributes("-topmost", True)
-        win.attributes("-alpha", 0.9)
-        win.configure(bg="#f7f4ef")
+        win.attributes("-alpha", 0.88)
+        glass_bg = "#f8fbff"
+        glass_edge = "#d9e6f2"
+        win.configure(bg=glass_bg)
 
-        header = tk.Frame(win, bg="#f7f4ef")
-        header.pack(fill="x", padx=10, pady=(8, 4))
-        tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 11, "bold")).pack(side="left")
-        tk.Button(header, text="\u00d7", command=win.destroy, width=3, relief="flat", bg="#f7f4ef").pack(side="right")
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=glass_edge)
+        frame.pack(fill="both", expand=True)
+        header = tk.Frame(frame, bg=glass_bg)
+        header.pack(fill="x", padx=12, pady=(9, 4))
+        tk.Label(header, text="\u25cf", bg=glass_bg, fg="#ff8fb3", font=("Segoe UI", 7)).pack(side="left", padx=(0, 5))
+        tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg=glass_bg, fg="#40505f", font=("Microsoft YaHei UI", 10, "bold")).pack(side="left")
+        tk.Label(header, text="\u672c\u5730\u56de\u590d", bg=glass_bg, fg="#8da0af", font=("Microsoft YaHei UI", 7)).pack(side="left", padx=8)
+        tk.Button(header, text="\u00d7", command=win.destroy, width=2, relief="flat", bd=0, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", cursor="hand2").pack(side="right")
         drag_offset = {"x": 0, "y": 0}
 
         def start_window_drag(event: tk.Event) -> None:
@@ -1243,31 +1249,31 @@ class DesktopPet:
         header.bind("<B1-Motion>", drag_window)
 
         history = tk.Text(
-            win,
+            frame,
             wrap="word",
             height=6,
             padx=8,
             pady=8,
-            bg="#fffdf8",
-            fg="#3f342f",
+            bg="#fdfefe",
+            fg="#354251",
             relief="flat",
             highlightthickness=1,
-            highlightbackground="#dfd5cb",
+            highlightbackground="#e1ebf3",
             font=("Microsoft YaHei UI", 9),
         )
-        history.pack(fill="both", expand=True, padx=10, pady=(0, 6))
-        history.tag_configure("pet", lmargin1=6, lmargin2=6, rmargin=42, spacing1=3, spacing3=4, background="#fff2f6", foreground="#4d3b38")
-        history.tag_configure("you", lmargin1=48, lmargin2=48, rmargin=6, spacing1=3, spacing3=4, background="#eef7ff", foreground="#2f3d4a")
-        history.tag_configure("system", lmargin1=16, lmargin2=16, rmargin=16, spacing1=3, spacing3=4, background="#f1eee8", foreground="#776a61")
-        history.tag_configure("name", foreground="#8f6b5f", font=("Microsoft YaHei UI", 9, "bold"))
+        history.pack(fill="both", expand=True, padx=12, pady=(0, 7))
+        history.tag_configure("pet", lmargin1=8, lmargin2=8, rmargin=54, spacing1=4, spacing3=5, background="#fff2f7", foreground="#4d3b48")
+        history.tag_configure("you", lmargin1=62, lmargin2=62, rmargin=8, spacing1=4, spacing3=5, background="#edf7ff", foreground="#2d4054")
+        history.tag_configure("system", lmargin1=18, lmargin2=18, rmargin=18, spacing1=4, spacing3=5, background="#f2f6fa", foreground="#6b7c8c")
+        history.tag_configure("name", foreground="#6b7c8c", font=("Microsoft YaHei UI", 8, "bold"))
 
-        input_card = tk.Frame(win, bg="#ffffff", highlightthickness=1, highlightbackground="#dfd5cb")
-        input_card.pack(fill="x", padx=10, pady=(0, 6))
-        entry = tk.Entry(input_card, relief="flat", bg="#ffffff", fg="#2f2925", font=("Microsoft YaHei UI", 10))
-        entry.pack(fill="x", padx=8, pady=6)
+        input_card = tk.Frame(frame, bg="#ffffff", highlightthickness=1, highlightbackground="#dce8f2")
+        input_card.pack(fill="x", padx=12, pady=(0, 7))
+        entry = tk.Entry(input_card, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 10))
+        entry.pack(fill="x", padx=9, pady=7)
 
-        buttons = tk.Frame(win, bg="#f7f4ef")
-        buttons.pack(fill="x", padx=10, pady=(0, 8))
+        buttons = tk.Frame(frame, bg=glass_bg)
+        buttons.pack(fill="x", padx=10, pady=(0, 9))
 
         def add_line(who: str, text: str) -> None:
             tag = "system"
@@ -1312,10 +1318,11 @@ class DesktopPet:
 
             threading.Thread(target=worker, daemon=True).start()
 
-        tk.Button(buttons, text="\u53d1\u9001", command=send, width=6).pack(side="left")
-        voice_button = tk.Button(buttons, text="\u8bed\u97f3/\u547d\u4ee4", command=voice_input, width=10)
+        button_style = {"relief": "flat", "bd": 0, "bg": "#ffffff", "fg": "#40505f", "activebackground": "#eaf3fb", "font": ("Microsoft YaHei UI", 8), "cursor": "hand2"}
+        tk.Button(buttons, text="\u53d1\u9001", command=send, width=7, **button_style).pack(side="left", padx=2)
+        voice_button = tk.Button(buttons, text="\u8bed\u97f3/\u547d\u4ee4", command=voice_input, width=11, **button_style)
         voice_button.pack(side="left", padx=5)
-        tk.Button(buttons, text="\u72b6\u6001", command=lambda: self.speak(self.daily_summary_sentence()), width=6).pack(side="left")
+        tk.Button(buttons, text="\u72b6\u6001", command=lambda: self.speak(self.daily_summary_sentence()), width=7, **button_style).pack(side="left")
         entry.bind("<Return>", lambda _event: send())
         add_line("\u840c\u5ba0", "\u6211\u5728\uff0c\u53ef\u4ee5\u804a\u5929\uff0c\u4e5f\u53ef\u4ee5\u8bf4\u547d\u4ee4\u3002")
         entry.focus_set()
