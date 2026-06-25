@@ -227,7 +227,7 @@ class DesktopPet:
 
         self.ui_scale = 0.45
         self.logical_width = 260
-        self.logical_height = 230
+        self.logical_height = 240
         self.width = int(self.logical_width * self.ui_scale)
         self.height = int(self.logical_height * self.ui_scale)
         self.canvas = tk.Canvas(self.root, width=self.width, height=self.height, bg=TRANSPARENT, highlightthickness=0)
@@ -1127,9 +1127,9 @@ class DesktopPet:
 
     def draw_status(self) -> None:
         label = self.pomodoro_label()
-        display = self.fit_text(label, 20)
-        self.draw_round_bubble(39, 193, 221, 224, radius=13, tail_at="top", fill="#fffef8")
-        self.canvas.create_text(130, 209, text=display, fill="#2f2925", font=("Microsoft YaHei UI", 10, "bold"))
+        display = self.fit_text(label, 16)
+        self.draw_round_bubble(30, 187, 230, 226, radius=14, tail_at="top", fill="#fffaf0")
+        self.canvas.create_text(130, 207, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 10, "bold"))
 
     def fit_text(self, text: str, max_chars: int) -> str:
         text = " ".join(str(text).split())
