@@ -51,6 +51,13 @@ DISTRACTION_COOLDOWN_SECONDS = 90
 CLOUD_SYNC_SECONDS = 5 * 60
 CLOUD_TIMEOUT_SECONDS = 10
 DEFAULT_CLOUD_ENDPOINT = "http://111.228.6.222:3000"
+GLASS_WINDOW_BG = "#180b2f"
+GLASS_PANEL_BG = "#f4f0ff"
+GLASS_CARD_BG = "#fbf9ff"
+GLASS_EDGE = "#ffffff"
+GLASS_TEXT = "#241936"
+GLASS_MUTED = "#6d5f80"
+GLASS_ACCENT = "#7c5cff"
 DISTRACTION_KEYWORDS = [
     "bilibili",
     "youtube",
@@ -850,11 +857,15 @@ class DesktopPet:
         self.set_mood("happy", "\u6536\u5de5\uff0c\u56de\u5230\u65e5\u5e38\u966a\u4f34\u6a21\u5f0f\u3002", 180)
 
     def make_glass_frame(self, win: tk.Toplevel, alpha: float = 0.94) -> tk.Frame:
-        glass_bg = "#f8fbff"
+        glass_bg = GLASS_WINDOW_BG
         win.attributes("-alpha", alpha)
         win.configure(bg=glass_bg)
-        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
-        frame.pack(fill="both", expand=True)
+        outer = tk.Frame(win, bg="#241244", highlightthickness=1, highlightbackground=GLASS_EDGE)
+        outer.pack(fill="both", expand=True)
+        glow_top = tk.Frame(outer, bg="#5e3bd8", height=2)
+        glow_top.pack(fill="x")
+        frame = tk.Frame(outer, bg=GLASS_PANEL_BG, highlightthickness=1, highlightbackground="#ffffff")
+        frame.pack(fill="both", expand=True, padx=2, pady=(0, 2))
         return frame
 
     def pet_popup_geometry(self, width: int, height: int, gap: int = 12) -> str:
@@ -889,10 +900,12 @@ class DesktopPet:
             relief="flat",
             bd=0,
             bg="#ffffff",
-            fg="#40505f",
-            activebackground="#eaf3fb",
+            fg="#34234d",
+            activebackground="#eadfff",
             font=("Microsoft YaHei UI", 9),
             cursor="hand2",
+            highlightthickness=1,
+            highlightbackground="#ffffff",
         )
 
     def pet_name(self) -> str:
@@ -931,45 +944,55 @@ class DesktopPet:
     def open_preferences(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u540d\u5b57/\u504f\u597d/\u6027\u683c")
-        win.geometry(self.pet_popup_geometry(540, 440))
+        win.geometry(self.pet_popup_geometry(560, 520))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
-        tk.Label(frame, text="\u540d\u5b57\u3001\u504f\u597d\u548c\u6027\u683c", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
-        tk.Label(frame, text="\u8fd9\u4e9b\u53ea\u4fdd\u5b58\u5728\u672c\u673a\uff0cDeepSeek \u804a\u5929\u65f6\u4f1a\u8bfb\u53d6\u3002", bg="#f8fbff", fg="#6b7c8c", wraplength=500, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
-        form = tk.Frame(frame, bg="#f8fbff")
-        form.pack(fill="x", padx=16)
+        header = tk.Frame(frame, bg=GLASS_PANEL_BG)
+        header.pack(fill="x", padx=18, pady=(16, 6))
+        tk.Label(header, text="\u540d\u5b57\u3001\u504f\u597d\u548c\u6027\u683c", bg=GLASS_PANEL_BG, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
+        tk.Label(header, text="\u8fd9\u4e9b\u53ea\u4fdd\u5b58\u5728\u672c\u673a\uff0cDeepSeek \u804a\u5929\u65f6\u4f1a\u8bfb\u53d6\u3002", bg=GLASS_PANEL_BG, fg=GLASS_MUTED, wraplength=505, justify="left").pack(anchor="w", pady=(3, 0))
+
+        bottom = tk.Frame(frame, bg=GLASS_PANEL_BG)
+        bottom.pack(side="bottom", fill="x", padx=18, pady=(8, 16))
+        status_var = tk.StringVar(value="")
+        tk.Label(bottom, textvariable=status_var, bg=GLASS_PANEL_BG, fg="#5e8f73", font=("Microsoft YaHei UI", 9)).pack(side="left")
+        button_row = tk.Frame(bottom, bg=GLASS_PANEL_BG)
+        button_row.pack(side="right")
+
+        card = tk.Frame(frame, bg=GLASS_CARD_BG, highlightthickness=1, highlightbackground="#ffffff")
+        card.pack(fill="both", expand=True, padx=18, pady=(6, 8))
+        form = tk.Frame(card, bg=GLASS_CARD_BG)
+        form.pack(fill="both", expand=True, padx=14, pady=14)
         entries: dict[str, tk.Entry] = {}
 
         def add_entry(label: str, key: str) -> None:
-            row = tk.Frame(form, bg="#f8fbff")
-            row.pack(fill="x", pady=5)
-            tk.Label(row, text=label, bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
-            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 10))
+            row = tk.Frame(form, bg=GLASS_CARD_BG)
+            row.pack(fill="x", pady=6)
+            tk.Label(row, text=label, bg=GLASS_CARD_BG, fg="#4d3c67", width=12, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg=GLASS_TEXT, insertbackground=GLASS_ACCENT, font=("Microsoft YaHei UI", 10), highlightthickness=1, highlightbackground="#e6dcff")
             entry.insert(0, str(self.prefs.get(key, "")))
             entry.pack(side="left", fill="x", expand=True, ipady=6)
             entries[key] = entry
 
         add_entry("\u840c\u5ba0\u540d\u5b57", "pet_name")
         add_entry("\u4e3b\u4eba\u79f0\u547c", "owner_name")
-        row = tk.Frame(form, bg="#f8fbff")
-        row.pack(fill="x", pady=5)
-        tk.Label(row, text="\u5929\u6c14\u57ce\u5e02", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
+        row = tk.Frame(form, bg=GLASS_CARD_BG)
+        row.pack(fill="x", pady=6)
+        tk.Label(row, text="\u5929\u6c14\u57ce\u5e02", bg=GLASS_CARD_BG, fg="#4d3c67", width=12, anchor="w").pack(side="left")
         saved_city = str(self.prefs.get("weather_city", "") or "")
         city_var = tk.StringVar(value=saved_city if saved_city in CHINA_WEATHER_CITIES else AUTO_WEATHER_CITY)
         city_combo = ttk.Combobox(row, textvariable=city_var, values=[AUTO_WEATHER_CITY, *CHINA_WEATHER_CITIES], state="readonly", height=12, font=("Microsoft YaHei UI", 10))
         city_combo.pack(side="left", fill="x", expand=True, ipady=4)
-        row = tk.Frame(form, bg="#f8fbff")
-        row.pack(fill="x", pady=5)
-        tk.Label(row, text="\u6027\u683c\u5305", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
+        row = tk.Frame(form, bg=GLASS_CARD_BG)
+        row.pack(fill="x", pady=6)
+        tk.Label(row, text="\u6027\u683c\u5305", bg=GLASS_CARD_BG, fg="#4d3c67", width=12, anchor="w").pack(side="left")
         personality_var = tk.StringVar(value=str(self.prefs.get("personality", "gentle")))
         personality_combo = ttk.Combobox(row, textvariable=personality_var, values=list(PERSONALITY_PACKS.keys()), state="readonly", height=4, font=("Microsoft YaHei UI", 10))
         personality_combo.pack(side="left", fill="x", expand=True, ipady=4)
-        tk.Label(form, text="\u4e2a\u4eba\u504f\u597d", bg="#f8fbff", fg="#40505f").pack(anchor="w", pady=(8, 3))
-        pref_text = tk.Text(form, height=4, bg="#ffffff", fg="#23313f", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
+        tk.Label(form, text="\u4e2a\u4eba\u504f\u597d", bg=GLASS_CARD_BG, fg="#4d3c67").pack(anchor="w", pady=(10, 4))
+        pref_text = tk.Text(form, height=5, bg="#ffffff", fg=GLASS_TEXT, relief="flat", highlightthickness=1, highlightbackground="#e6dcff", font=("Microsoft YaHei UI", 10))
         pref_text.insert("1.0", str(self.prefs.get("personal_preferences", "")))
-        pref_text.pack(fill="x")
-        status_var = tk.StringVar(value="")
-        tk.Label(frame, textvariable=status_var, bg="#f8fbff", fg="#5f8f73", font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(8, 0))
+        pref_text.pack(fill="both", expand=True)
 
         def save(close: bool = False) -> None:
             for key, entry in entries.items():
@@ -984,11 +1007,9 @@ class DesktopPet:
             if close:
                 win.destroy()
 
-        bottom = tk.Frame(frame, bg="#f8fbff")
-        bottom.pack(fill="x", padx=16, pady=(10, 14))
-        self.glass_button(bottom, "\u4fdd\u5b58", lambda: save(False), 8).pack(side="left")
-        self.glass_button(bottom, "\u4fdd\u5b58\u5e76\u5173\u95ed", lambda: save(True), 12).pack(side="left", padx=8)
-        self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
+        self.glass_button(button_row, "\u4fdd\u5b58", lambda: save(False), 8).pack(side="left", padx=(0, 8))
+        self.glass_button(button_row, "\u4fdd\u5b58\u5e76\u5173\u95ed", lambda: save(True), 12).pack(side="left", padx=(0, 8))
+        self.glass_button(button_row, "\u5173\u95ed", win.destroy, 8).pack(side="left")
 
     def open_achievements(self) -> None:
         win = tk.Toplevel(self.root)
@@ -996,7 +1017,7 @@ class DesktopPet:
         win.geometry(self.pet_popup_geometry(420, 320))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
-        tk.Label(frame, text="\u6210\u5c31\u6253\u5361", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(frame, text="\u6210\u5c31\u6253\u5361", bg=GLASS_PANEL_BG, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
         achievements = self.companion_state.data.get("achievements", {})
         checkins = self.companion_state.data.get("checkins", {})
         lines = [f"\u60c5\u7eea\u6253\u5361\uff1a{len(checkins)} \u5929", f"\u5df2\u89e3\u9501\u6210\u5c31\uff1a{len(achievements)} \u4e2a", ""]
@@ -1004,7 +1025,7 @@ class DesktopPet:
             lines.extend(f"- {item.get('title')}  {item.get('date')}" for item in achievements.values())
         else:
             lines.append("- \u8fd8\u6ca1\u6709\u6210\u5c31\uff0c\u5148\u6807\u8bb0\u4e00\u6b21\u60c5\u7eea\u5427\u3002")
-        text = tk.Text(frame, bg="#fdfefe", fg="#354251", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
+        text = tk.Text(frame, bg=GLASS_CARD_BG, fg=GLASS_TEXT, relief="flat", highlightthickness=1, highlightbackground=GLASS_EDGE, font=("Microsoft YaHei UI", 10))
         text.pack(fill="both", expand=True, padx=16, pady=12)
         text.insert("end", "\n".join(lines))
         text.configure(state="disabled")
@@ -1036,8 +1057,8 @@ class DesktopPet:
         win.overrideredirect(True)
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.86)
-        glass_bg = "#f8fbff"
-        glass_edge = "#d9e6f2"
+        glass_bg = GLASS_PANEL_BG
+        glass_edge = GLASS_EDGE
         win.configure(bg=glass_bg)
 
         frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=glass_edge)
@@ -1046,14 +1067,14 @@ class DesktopPet:
         top = tk.Frame(frame, bg=glass_bg)
         top.pack(fill="x", padx=10, pady=(8, 1))
         tk.Label(top, text="\u25cf", bg=glass_bg, fg="#ff6b6b", font=("Segoe UI", 7)).pack(side="left", padx=(0, 4))
-        tk.Label(top, text="\u756a\u8304\u4e13\u6ce8", bg=glass_bg, fg="#40505f", font=("Microsoft YaHei UI", 8, "bold")).pack(side="left")
-        tk.Label(top, textvariable=self.pomodoro_mode_var, bg=glass_bg, fg="#6b7c8c", font=("Microsoft YaHei UI", 7)).pack(side="right")
+        tk.Label(top, text="\u756a\u8304\u4e13\u6ce8", bg=glass_bg, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 8, "bold")).pack(side="left")
+        tk.Label(top, textvariable=self.pomodoro_mode_var, bg=glass_bg, fg=GLASS_MUTED, font=("Microsoft YaHei UI", 7)).pack(side="right")
 
         tk.Frame(frame, bg="#ffffff", height=1).pack(fill="x", padx=10, pady=(2, 5))
 
         time_row = tk.Frame(frame, bg=glass_bg)
         time_row.pack(fill="x", padx=10)
-        tk.Label(time_row, textvariable=self.pomodoro_time_var, bg=glass_bg, fg="#23313f", font=("Segoe UI", 17, "bold")).pack(side="left")
+        tk.Label(time_row, textvariable=self.pomodoro_time_var, bg=glass_bg, fg=GLASS_TEXT, font=("Segoe UI", 17, "bold")).pack(side="left")
         tk.Label(time_row, text="\u25cf \u25cf \u25cf", bg=glass_bg, fg="#c8d5df", font=("Segoe UI", 6)).pack(side="right", pady=(8, 0))
 
         self.pomodoro_progress = tk.Canvas(frame, width=138, height=11, bg=glass_bg, highlightthickness=0)
@@ -1063,8 +1084,8 @@ class DesktopPet:
         buttons.pack(fill="x", padx=8, pady=(1, 8))
         button_style = {"relief": "flat", "bd": 0, "font": ("Microsoft YaHei UI", 8), "cursor": "hand2"}
         tk.Button(buttons, textvariable=self.pomodoro_action_var, command=self.toggle_pomodoro_running, width=6, bg="#ffffff", fg="#40505f", activebackground="#eaf3fb", **button_style).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u91cd\u7f6e", command=self.reset_pomodoro, width=6, bg="#ffffff", fg="#6b7c8c", activebackground="#eaf3fb", **button_style).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u00d7", command=self.close_pomodoro_widget, width=2, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", **button_style).pack(side="right", padx=2)
+        tk.Button(buttons, text="\u91cd\u7f6e", command=self.reset_pomodoro, width=6, bg="#ffffff", fg=GLASS_MUTED, activebackground="#eadfff", **button_style).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u00d7", command=self.close_pomodoro_widget, width=2, bg=glass_bg, fg=GLASS_MUTED, activebackground="#eadfff", **button_style).pack(side="right", padx=2)
 
         self.refresh_pomodoro_widget()
 
@@ -1117,15 +1138,15 @@ class DesktopPet:
         win.overrideredirect(True)
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.9)
-        glass_bg = "#f8fbff"
+        glass_bg = GLASS_PANEL_BG
         win.configure(bg=glass_bg)
         win.geometry(self.pet_popup_geometry(250, 156))
 
-        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=GLASS_EDGE)
         frame.pack(fill="both", expand=True)
-        self.panel_title = tk.Label(frame, text="\u840c\u5ba0\u5c0f\u9762\u677f", bg=glass_bg, fg="#23313f", font=("Microsoft YaHei UI", 11, "bold"))
+        self.panel_title = tk.Label(frame, text="\u840c\u5ba0\u5c0f\u9762\u677f", bg=glass_bg, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 11, "bold"))
         self.panel_title.pack(anchor="w", padx=10, pady=(8, 2))
-        self.panel_status = tk.Label(frame, text="", bg=glass_bg, fg="#6b7c8c", justify="left", font=("Microsoft YaHei UI", 9))
+        self.panel_status = tk.Label(frame, text="", bg=glass_bg, fg=GLASS_MUTED, justify="left", font=("Microsoft YaHei UI", 9))
         self.panel_status.pack(anchor="w", padx=10)
         buttons = tk.Frame(frame, bg=glass_bg)
         buttons.pack(fill="x", padx=8, pady=(8, 6))
@@ -1425,23 +1446,23 @@ class DesktopPet:
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
 
-        tk.Label(frame, text="\u4eca\u65e5\u4e09\u4ef6\u4e8b", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 17, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
-        tk.Label(frame, text="\u628a\u4eca\u5929\u6700\u91cd\u8981\u7684\u4e09\u4ef6\u4e8b\u653e\u5728\u8fd9\u91cc\uff0c\u840c\u5ba0\u4f1a\u5728\u756a\u8304\u949f\u540e\u5e2e\u4f60\u590d\u76d8\u3002", bg="#f8fbff", fg="#6b7c8c", font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
+        tk.Label(frame, text="\u4eca\u65e5\u4e09\u4ef6\u4e8b", bg=GLASS_PANEL_BG, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 17, "bold")).pack(anchor="w", padx=16, pady=(14, 4))
+        tk.Label(frame, text="\u628a\u4eca\u5929\u6700\u91cd\u8981\u7684\u4e09\u4ef6\u4e8b\u653e\u5728\u8fd9\u91cc\uff0c\u840c\u5ba0\u4f1a\u5728\u756a\u8304\u949f\u540e\u5e2e\u4f60\u590d\u76d8\u3002", bg=GLASS_PANEL_BG, fg=GLASS_MUTED, font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(0, 12))
 
-        rows = tk.Frame(frame, bg="#f8fbff")
+        rows = tk.Frame(frame, bg=GLASS_PANEL_BG)
         rows.pack(fill="both", expand=True, padx=16)
         entries: list[tk.Entry] = []
         done_vars: list[tk.BooleanVar] = []
 
         for index in range(3):
             task = self.tasks[index] if index < len(self.tasks) else {"text": "", "done": False}
-            row = tk.Frame(rows, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
+            row = tk.Frame(rows, bg=GLASS_CARD_BG, highlightthickness=1, highlightbackground=GLASS_EDGE)
             row.pack(fill="x", pady=5)
             done_var = tk.BooleanVar(value=bool(task.get("done")))
             done_vars.append(done_var)
-            tk.Checkbutton(row, variable=done_var, bg="#ffffff", activebackground="#ffffff").pack(side="left", padx=8)
-            tk.Label(row, text=f"{index + 1}.", bg="#ffffff", fg="#6b7c8c", font=("Segoe UI", 10, "bold")).pack(side="left")
-            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 11))
+            tk.Checkbutton(row, variable=done_var, bg=GLASS_CARD_BG, activebackground=GLASS_CARD_BG).pack(side="left", padx=8)
+            tk.Label(row, text=f"{index + 1}.", bg=GLASS_CARD_BG, fg=GLASS_MUTED, font=("Segoe UI", 10, "bold")).pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg=GLASS_TEXT, insertbackground=GLASS_ACCENT, font=("Microsoft YaHei UI", 11))
             entry.insert(0, str(task.get("text", "")))
             entry.pack(side="left", fill="x", expand=True, padx=8, pady=10)
             entries.append(entry)
@@ -1460,7 +1481,7 @@ class DesktopPet:
             if close:
                 win.destroy()
 
-        bottom = tk.Frame(frame, bg="#f8fbff")
+        bottom = tk.Frame(frame, bg=GLASS_PANEL_BG)
         bottom.pack(fill="x", padx=16, pady=12)
         self.glass_button(bottom, "\u4fdd\u5b58", lambda: save_and_close(False), 8).pack(side="left")
         self.glass_button(bottom, "\u4fdd\u5b58\u5e76\u5173\u95ed", lambda: save_and_close(True), 12).pack(side="left", padx=8)
@@ -1528,13 +1549,13 @@ class DesktopPet:
         win.geometry(self.pet_popup_geometry(680, 520))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
-        text = tk.Text(frame, wrap="word", padx=12, pady=12, bg="#fdfefe", fg="#354251", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
+        text = tk.Text(frame, wrap="word", padx=12, pady=12, bg=GLASS_CARD_BG, fg=GLASS_TEXT, relief="flat", highlightthickness=1, highlightbackground=GLASS_EDGE, font=("Microsoft YaHei UI", 10))
         text.pack(fill="both", expand=True)
         text.insert("end", report_path.read_text(encoding="utf-8"))
         text.configure(state="disabled")
-        bottom = tk.Frame(frame, bg="#f8fbff")
+        bottom = tk.Frame(frame, bg=GLASS_PANEL_BG)
         bottom.pack(fill="x", padx=10, pady=10)
-        tk.Label(bottom, text=str(report_path), bg="#f8fbff", fg="#6b7c8c").pack(side="left")
+        tk.Label(bottom, text=str(report_path), bg=GLASS_PANEL_BG, fg=GLASS_MUTED).pack(side="left")
         self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
 
     def smart_daily_review(self, apps: list[tuple[str, float]], windows: list[dict], done_count: int, total: float) -> str:
@@ -1560,18 +1581,18 @@ class DesktopPet:
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
 
-        tk.Label(frame, text="\u4e91\u540c\u6b65\u767b\u5f55", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
-        tk.Label(frame, text="\u5728\u591a\u53f0\u7535\u8111\u4f7f\u7528\u540c\u4e00\u4e2a\u4e91\u7aef\u5730\u5740\u548c\u8d26\u53f7\uff0c\u5373\u53ef\u5171\u4eab\u672c\u5730\u6570\u636e\u8bb0\u5f55\u3002", bg="#f8fbff", fg="#6b7c8c", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+        tk.Label(frame, text="\u4e91\u540c\u6b65\u767b\u5f55", bg=GLASS_PANEL_BG, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(frame, text="\u5728\u591a\u53f0\u7535\u8111\u4f7f\u7528\u540c\u4e00\u4e2a\u4e91\u7aef\u5730\u5740\u548c\u8d26\u53f7\uff0c\u5373\u53ef\u5171\u4eab\u672c\u5730\u6570\u636e\u8bb0\u5f55\u3002", bg=GLASS_PANEL_BG, fg=GLASS_MUTED, wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
 
-        form = tk.Frame(frame, bg="#f8fbff")
+        form = tk.Frame(frame, bg=GLASS_PANEL_BG)
         form.pack(fill="x", padx=16)
         fields: dict[str, tk.Entry] = {}
 
         def add_field(label: str, key: str, value: str = "", show: str | None = None) -> None:
-            row = tk.Frame(form, bg="#f8fbff")
+            row = tk.Frame(form, bg=GLASS_PANEL_BG)
             row.pack(fill="x", pady=5)
-            tk.Label(row, text=label, bg="#f8fbff", fg="#40505f", width=10, anchor="w").pack(side="left")
-            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", show=show or "", font=("Microsoft YaHei UI", 10))
+            tk.Label(row, text=label, bg=GLASS_PANEL_BG, fg="#4d3c67", width=10, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg=GLASS_TEXT, insertbackground=GLASS_ACCENT, show=show or "", font=("Microsoft YaHei UI", 10))
             entry.insert(0, value)
             entry.pack(side="left", fill="x", expand=True, ipady=5)
             fields[key] = entry
@@ -1582,7 +1603,7 @@ class DesktopPet:
         add_field("\u8bbe\u5907\u540d", "device_name", str(self.cloud.config.get("device_name", platform.node() or "Windows PC")))
 
         status_var = tk.StringVar(value=self.cloud_status_text())
-        tk.Label(frame, textvariable=status_var, bg="#f8fbff", fg="#6b7c8c", wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(10, 8))
+        tk.Label(frame, textvariable=status_var, bg=GLASS_PANEL_BG, fg=GLASS_MUTED, wraplength=420, justify="left").pack(anchor="w", padx=16, pady=(10, 8))
 
         def login_and_sync() -> None:
             endpoint = fields["endpoint"].get().strip()
@@ -1609,7 +1630,7 @@ class DesktopPet:
 
             threading.Thread(target=worker, daemon=True).start()
 
-        bottom = tk.Frame(frame, bg="#f8fbff")
+        bottom = tk.Frame(frame, bg=GLASS_PANEL_BG)
         bottom.pack(fill="x", padx=16, pady=12)
         self.glass_button(bottom, "\u767b\u5f55\u5e76\u540c\u6b65", login_and_sync, 14).pack(side="left")
         self.glass_button(bottom, "\u7acb\u5373\u540c\u6b65", lambda: self.sync_cloud_async(manual=True), 10).pack(side="left", padx=8)
@@ -1663,13 +1684,13 @@ class DesktopPet:
         win.geometry(self.pet_popup_geometry(470, 300))
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.94)
-        glass_bg = "#f8fbff"
+        glass_bg = GLASS_PANEL_BG
         win.configure(bg=glass_bg)
 
-        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
+        frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=GLASS_EDGE)
         frame.pack(fill="both", expand=True)
-        tk.Label(frame, text="DeepSeek \u5bf9\u8bdd\u914d\u7f6e", bg=glass_bg, fg="#23313f", font=("Microsoft YaHei UI", 15, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
-        tk.Label(frame, text="\u4fdd\u5b58\u5728\u672c\u673a data/deepseek-config.json\uff0c\u7528\u4e8e\u548c\u840c\u5ba0\u5bf9\u8bdd\u65f6\u8c03\u7528 DeepSeek\u3002", bg=glass_bg, fg="#6b7c8c", wraplength=430, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
+        tk.Label(frame, text="DeepSeek \u5bf9\u8bdd\u914d\u7f6e", bg=glass_bg, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 15, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(frame, text="\u4fdd\u5b58\u5728\u672c\u673a data/deepseek-config.json\uff0c\u7528\u4e8e\u548c\u840c\u5ba0\u5bf9\u8bdd\u65f6\u8c03\u7528 DeepSeek\u3002", bg=glass_bg, fg=GLASS_MUTED, wraplength=430, justify="left").pack(anchor="w", padx=16, pady=(0, 12))
 
         form = tk.Frame(frame, bg=glass_bg)
         form.pack(fill="x", padx=16)
@@ -1678,8 +1699,8 @@ class DesktopPet:
         def add_field(label: str, key: str, value: str = "", show: str | None = None) -> None:
             row = tk.Frame(form, bg=glass_bg)
             row.pack(fill="x", pady=5)
-            tk.Label(row, text=label, bg=glass_bg, fg="#40505f", width=9, anchor="w").pack(side="left")
-            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", show=show or "", font=("Microsoft YaHei UI", 10))
+            tk.Label(row, text=label, bg=glass_bg, fg="#4d3c67", width=9, anchor="w").pack(side="left")
+            entry = tk.Entry(row, relief="flat", bg="#ffffff", fg=GLASS_TEXT, insertbackground=GLASS_ACCENT, show=show or "", font=("Microsoft YaHei UI", 10))
             entry.insert(0, value)
             entry.pack(side="left", fill="x", expand=True, ipady=6)
             fields[key] = entry
@@ -1689,7 +1710,7 @@ class DesktopPet:
         add_field("\u5730\u5740", "base_url", str(self.deepseek.config.get("base_url", "https://api.deepseek.com")))
 
         status_var = tk.StringVar(value="\u5df2\u914d\u7f6e" if self.deepseek.is_configured() else "\u672a\u914d\u7f6e")
-        tk.Label(frame, textvariable=status_var, bg=glass_bg, fg="#6b7c8c").pack(anchor="w", padx=16, pady=(8, 0))
+        tk.Label(frame, textvariable=status_var, bg=glass_bg, fg=GLASS_MUTED).pack(anchor="w", padx=16, pady=(8, 0))
 
         def save() -> None:
             self.deepseek.config["api_key"] = fields["api_key"].get().strip()
@@ -1701,7 +1722,7 @@ class DesktopPet:
 
         bottom = tk.Frame(frame, bg=glass_bg)
         bottom.pack(fill="x", padx=16, pady=14)
-        button_style = {"relief": "flat", "bd": 0, "bg": "#ffffff", "fg": "#40505f", "activebackground": "#eaf3fb", "font": ("Microsoft YaHei UI", 9), "cursor": "hand2"}
+        button_style = {"relief": "flat", "bd": 0, "bg": "#ffffff", "fg": "#34234d", "activebackground": "#eadfff", "font": ("Microsoft YaHei UI", 9), "cursor": "hand2"}
         tk.Button(bottom, text="\u4fdd\u5b58", command=save, width=8, **button_style).pack(side="left")
         tk.Button(bottom, text="\u5173\u95ed", command=win.destroy, width=8, **button_style).pack(side="right")
 
@@ -1718,8 +1739,8 @@ class DesktopPet:
         win.overrideredirect(True)
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.93)
-        glass_bg = "#f8fbff"
-        glass_edge = "#d9e6f2"
+        glass_bg = GLASS_PANEL_BG
+        glass_edge = GLASS_EDGE
         win.configure(bg=glass_bg)
 
         frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground=glass_edge)
@@ -1727,10 +1748,10 @@ class DesktopPet:
         header = tk.Frame(frame, bg=glass_bg)
         header.pack(fill="x", padx=14, pady=(12, 5))
         tk.Label(header, text="\u25cf", bg=glass_bg, fg="#ff8fb3", font=("Segoe UI", 8)).pack(side="left", padx=(0, 6))
-        tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg=glass_bg, fg="#23313f", font=("Microsoft YaHei UI", 12, "bold")).pack(side="left")
+        tk.Label(header, text="\u548c\u840c\u5ba0\u8bf4\u8bdd", bg=glass_bg, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 12, "bold")).pack(side="left")
         provider_label = "DeepSeek" if self.deepseek.is_configured() else "\u672c\u5730\u56de\u590d"
         tk.Label(header, text=provider_label, bg="#eef6fb", fg="#6c8296", font=("Microsoft YaHei UI", 8), padx=7, pady=2).pack(side="left", padx=8)
-        tk.Button(header, text="\u00d7", command=win.destroy, width=2, relief="flat", bd=0, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", cursor="hand2", font=("Microsoft YaHei UI", 10)).pack(side="right")
+        tk.Button(header, text="\u00d7", command=win.destroy, width=2, relief="flat", bd=0, bg=glass_bg, fg=GLASS_MUTED, activebackground="#eadfff", cursor="hand2", font=("Microsoft YaHei UI", 10)).pack(side="right")
         drag_offset = {"x": 0, "y": 0}
 
         def start_window_drag(event: tk.Event) -> None:
@@ -1753,25 +1774,25 @@ class DesktopPet:
             fg="#354251",
             relief="flat",
             highlightthickness=1,
-            highlightbackground="#e1ebf3",
+            highlightbackground=GLASS_EDGE,
             font=("Microsoft YaHei UI", 9),
         )
         history.pack(fill="both", expand=True, padx=14, pady=(0, 8))
         history.tag_configure("pet", lmargin1=10, lmargin2=10, rmargin=70, spacing1=5, spacing3=6, background="#fff4f8", foreground="#4d3b48")
         history.tag_configure("you", lmargin1=86, lmargin2=86, rmargin=10, spacing1=5, spacing3=6, background="#edf7ff", foreground="#2d4054")
-        history.tag_configure("system", lmargin1=24, lmargin2=24, rmargin=24, spacing1=4, spacing3=5, foreground="#6b7c8c")
+        history.tag_configure("system", lmargin1=24, lmargin2=24, rmargin=24, spacing1=4, spacing3=5, foreground=GLASS_MUTED)
         history.tag_configure("name", foreground="#7a8da0", font=("Microsoft YaHei UI", 8, "bold"))
         history.configure(state="disabled")
 
         input_card = tk.Frame(frame, bg="#ffffff", highlightthickness=1, highlightbackground="#dce8f2")
         input_card.pack(fill="x", padx=14, pady=(0, 6))
-        entry = tk.Entry(input_card, relief="flat", bg="#ffffff", fg="#23313f", insertbackground="#6b7c8c", font=("Microsoft YaHei UI", 10))
+        entry = tk.Entry(input_card, relief="flat", bg="#ffffff", fg=GLASS_TEXT, insertbackground=GLASS_ACCENT, font=("Microsoft YaHei UI", 10))
         entry.pack(fill="x", padx=11, pady=8)
 
         footer = tk.Frame(frame, bg=glass_bg)
         footer.pack(fill="x", padx=14, pady=(0, 12))
         status_var = tk.StringVar(value="")
-        tk.Label(footer, textvariable=status_var, bg=glass_bg, fg="#8da0af", font=("Microsoft YaHei UI", 8)).pack(side="left")
+        tk.Label(footer, textvariable=status_var, bg=glass_bg, fg=GLASS_MUTED, font=("Microsoft YaHei UI", 8)).pack(side="left")
         buttons = tk.Frame(footer, bg=glass_bg)
         buttons.pack(side="right")
         chat_messages: list[dict] = []
@@ -2024,8 +2045,8 @@ class DesktopPet:
         return sum(self.tracker.data.get("apps", {}).values())
 
     def make_stat_card(self, parent: tk.Widget, title: str, value: str, accent: str) -> tk.Canvas:
-        card = tk.Canvas(parent, width=218, height=92, bg="#f8fbff", highlightthickness=0)
-        card.create_rectangle(4, 4, 214, 88, fill="#ffffff", outline="#e1ebf3", width=1)
+        card = tk.Canvas(parent, width=218, height=92, bg=GLASS_PANEL_BG, highlightthickness=0)
+        card.create_rectangle(4, 4, 214, 88, fill=GLASS_CARD_BG, outline=GLASS_EDGE, width=1)
         card.create_rectangle(4, 4, 16, 88, fill=accent, outline=accent)
         card.create_text(28, 24, anchor="w", text=title, fill="#5d544a", font=("Microsoft YaHei UI", 10))
         card.create_text(28, 58, anchor="w", text=value, fill="#2f2925", font=("Microsoft YaHei UI", 18, "bold"))
@@ -2119,10 +2140,10 @@ class DesktopPet:
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win, alpha=0.95)
 
-        header = tk.Frame(frame, bg="#f8fbff")
+        header = tk.Frame(frame, bg=GLASS_PANEL_BG)
         header.pack(fill="x", padx=18, pady=(16, 10))
-        tk.Label(header, text="\u4eca\u65e5\u770b\u677f", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 19, "bold")).pack(anchor="w")
-        tk.Label(header, text=f"\u65f6\u95f4\u7edf\u8ba1\u3001\u4e09\u4ef6\u4e8b\u548c\u4eca\u65e5\u603b\u7ed3\u653e\u5728\u4e00\u8d77    {self.tracker.current_day}", bg="#f8fbff", fg="#6b7c8c", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
+        tk.Label(header, text="\u4eca\u65e5\u770b\u677f", bg=GLASS_PANEL_BG, fg=GLASS_TEXT, font=("Microsoft YaHei UI", 19, "bold")).pack(anchor="w")
+        tk.Label(header, text=f"\u65f6\u95f4\u7edf\u8ba1\u3001\u4e09\u4ef6\u4e8b\u548c\u4eca\u65e5\u603b\u7ed3\u653e\u5728\u4e00\u8d77    {self.tracker.current_day}", bg=GLASS_PANEL_BG, fg=GLASS_MUTED, font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
 
         apps = self.tracker.top_apps(6)
         windows = self.tracker.top_windows(6)
@@ -2132,32 +2153,32 @@ class DesktopPet:
         done_count = sum(1 for task in self.tasks if task.get("done"))
         suggestion = self.dashboard_suggestion(done_count, apps)
 
-        cards = tk.Frame(frame, bg="#f8fbff")
+        cards = tk.Frame(frame, bg=GLASS_PANEL_BG)
         cards.pack(fill="x", padx=18, pady=(0, 12))
         self.make_stat_card(cards, "\u603b\u8bb0\u5f55\u65f6\u957f", format_seconds(total_seconds), "#4c78a8").pack(side="left", padx=(0, 12))
         self.make_stat_card(cards, "\u6d89\u53ca\u5e94\u7528", f"{app_count} \u4e2a", "#54a24b").pack(side="left", padx=(0, 12))
         self.make_stat_card(cards, "\u4e09\u4ef6\u4e8b", f"{done_count}/3", "#e45756").pack(side="left")
 
-        chart = tk.Canvas(frame, width=736, height=258, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
+        chart = tk.Canvas(frame, width=736, height=258, bg=GLASS_CARD_BG, highlightthickness=1, highlightbackground=GLASS_EDGE)
         chart.pack(fill="x", padx=18, pady=(0, 12))
         self.draw_app_chart(chart, apps)
 
-        insight_row = tk.Frame(frame, bg="#f8fbff")
+        insight_row = tk.Frame(frame, bg=GLASS_PANEL_BG)
         insight_row.pack(fill="x", padx=18, pady=(0, 12))
-        tasks = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
+        tasks = tk.Canvas(insight_row, width=352, height=166, bg=GLASS_CARD_BG, highlightthickness=1, highlightbackground=GLASS_EDGE)
         tasks.pack(side="left", fill="x", expand=True, padx=(0, 12))
         self.draw_task_summary(tasks, done_count)
-        advice = tk.Canvas(insight_row, width=352, height=166, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
+        advice = tk.Canvas(insight_row, width=352, height=166, bg=GLASS_CARD_BG, highlightthickness=1, highlightbackground=GLASS_EDGE)
         advice.pack(side="left", fill="x", expand=True)
         self.draw_advice_card(advice, suggestion, total_seconds)
 
-        ranking = tk.Canvas(frame, width=736, height=226, bg="#ffffff", highlightthickness=1, highlightbackground="#e1ebf3")
+        ranking = tk.Canvas(frame, width=736, height=226, bg=GLASS_CARD_BG, highlightthickness=1, highlightbackground=GLASS_EDGE)
         ranking.pack(fill="both", expand=True, padx=18, pady=(0, 10))
         self.draw_window_ranking(ranking, windows)
 
-        bottom = tk.Frame(frame, bg="#f8fbff")
+        bottom = tk.Frame(frame, bg=GLASS_PANEL_BG)
         bottom.pack(fill="x", padx=18, pady=(0, 14))
-        tk.Label(bottom, text=f"\u5171 {window_count} \u4e2a\u7a97\u53e3\u8bb0\u5f55", bg="#f8fbff", fg="#6b7c8c", font=("Microsoft YaHei UI", 9)).pack(side="left")
+        tk.Label(bottom, text=f"\u5171 {window_count} \u4e2a\u7a97\u53e3\u8bb0\u5f55", bg=GLASS_PANEL_BG, fg=GLASS_MUTED, font=("Microsoft YaHei UI", 9)).pack(side="left")
         self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
         self.glass_button(bottom, "\u5237\u65b0", self.open_stats, 8).pack(side="right", padx=6)
         self.glass_button(bottom, "\u751f\u6210 Markdown \u603b\u7ed3", self.generate_report, 18).pack(side="right", padx=6)
