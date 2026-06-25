@@ -565,6 +565,65 @@ class DesktopPet:
         parts = [f"{name} {format_seconds(seconds)}" for name, seconds in top]
         return "\u4eca\u5929\u82b1\u65f6\u95f4\u6700\u591a\u7684\u5730\u65b9\u662f\uff1a" + "\uff0c".join(parts) + "\u3002"
 
+    def total_activity_seconds(self) -> float:
+        return sum(self.tracker.data.get("apps", {}).values())
+
+    def make_stat_card(self, parent: tk.Widget, title: str, value: str, accent: str) -> tk.Canvas:
+        card = tk.Canvas(parent, width=218, height=92, bg="#f7f4ef", highlightthickness=0)
+        card.create_rectangle(4, 4, 214, 88, fill="#ffffff", outline="#d8d1c7", width=1)
+        card.create_rectangle(4, 4, 16, 88, fill=accent, outline=accent)
+        card.create_text(28, 24, anchor="w", text=title, fill="#5d544a", font=("Microsoft YaHei UI", 10))
+        card.create_text(28, 58, anchor="w", text=value, fill="#2f2925", font=("Microsoft YaHei UI", 18, "bold"))
+        return card
+
+    def draw_app_chart(self, canvas: tk.Canvas, apps: list[tuple[str, float]]) -> None:
+        canvas.delete("all")
+        width = int(canvas["width"])
+        colors = ["#4c78a8", "#f58518", "#54a24b", "#e45756", "#72b7b2", "#b279a2"]
+        canvas.create_text(18, 18, anchor="w", text="\u5e94\u7528\u8017\u65f6\u56fe", fill="#2f2925", font=("Microsoft YaHei UI", 13, "bold"))
+
+        if not apps:
+            canvas.create_text(width / 2, 132, text="\u6682\u65e0\u6570\u636e\uff0c\u7a0d\u5fae\u4f7f\u7528\u4e00\u4f1a\u513f\u5c31\u4f1a\u51fa\u73b0\u7edf\u8ba1\u3002", fill="#7b7067", font=("Microsoft YaHei UI", 11))
+            return
+
+        max_seconds = max(seconds for _name, seconds in apps) or 1
+        start_y = 54
+        row_h = 36
+        label_w = 150
+        bar_max = width - label_w - 96
+        total = sum(seconds for _name, seconds in apps) or 1
+
+        for index, (name, seconds) in enumerate(apps[:6]):
+            y = start_y + index * row_h
+            color = colors[index % len(colors)]
+            bar_w = max(6, int(bar_max * seconds / max_seconds))
+            percent = seconds / total * 100
+            display_name = name[:22]
+            canvas.create_text(18, y + 10, anchor="w", text=display_name, fill="#3a332e", font=("Microsoft YaHei UI", 10, "bold"))
+            canvas.create_rectangle(label_w, y, label_w + bar_max, y + 20, fill="#eee8df", outline="")
+            canvas.create_rectangle(label_w, y, label_w + bar_w, y + 20, fill=color, outline="")
+            canvas.create_text(label_w + bar_max + 12, y + 10, anchor="w", text=f"{format_seconds(seconds)}  {percent:.0f}%", fill="#5d544a", font=("Segoe UI", 9))
+
+    def draw_window_ranking(self, canvas: tk.Canvas, windows: list[dict]) -> None:
+        canvas.delete("all")
+        width = int(canvas["width"])
+        canvas.create_text(18, 18, anchor="w", text="\u7a97\u53e3\u660e\u7ec6\u6392\u884c", fill="#2f2925", font=("Microsoft YaHei UI", 13, "bold"))
+
+        if not windows:
+            canvas.create_text(width / 2, 108, text="\u6682\u65e0\u7a97\u53e3\u660e\u7ec6\u3002", fill="#7b7067", font=("Microsoft YaHei UI", 11))
+            return
+
+        for index, item in enumerate(windows[:8], start=1):
+            y = 48 + (index - 1) * 32
+            seconds = item.get("seconds", 0)
+            process = str(item.get("process", "\u672a\u77e5"))
+            title = str(item.get("title", "\u65e0\u6807\u9898"))[:54]
+            canvas.create_oval(18, y + 4, 38, y + 24, fill="#efe6d8", outline="#d8d1c7")
+            canvas.create_text(28, y + 14, text=str(index), fill="#6b5844", font=("Segoe UI", 9, "bold"))
+            canvas.create_text(48, y + 6, anchor="w", text=process, fill="#2f2925", font=("Segoe UI", 10, "bold"))
+            canvas.create_text(48, y + 22, anchor="w", text=title, fill="#7b7067", font=("Microsoft YaHei UI", 9))
+            canvas.create_text(width - 18, y + 14, anchor="e", text=format_seconds(seconds), fill="#4c78a8", font=("Segoe UI", 10, "bold"))
+
     def open_stats(self) -> None:
         self.tracker.save()
         if self.stats_window and self.stats_window.winfo_exists():
@@ -573,27 +632,42 @@ class DesktopPet:
         win = tk.Toplevel(self.root)
         self.stats_window = win
         win.title("\u4eca\u65e5\u65f6\u95f4\u7edf\u8ba1")
-        win.geometry("560x440")
+        win.geometry("760x620")
+        win.minsize(720, 560)
         win.attributes("-topmost", True)
+        win.configure(bg="#f7f4ef")
 
-        text = tk.Text(win, wrap="word", padx=10, pady=10)
-        text.pack(fill="both", expand=True)
-        text.insert("end", f"\u65e5\u671f\uff1a{self.tracker.current_day}\n")
-        text.insert("end", f"\u6570\u636e\u6587\u4ef6\uff1a{self.tracker.path}\n\n")
-        text.insert("end", "\u5e94\u7528\u8017\u65f6\u6392\u884c\n")
-        for index, (name, seconds) in enumerate(self.tracker.top_apps(10), start=1):
-            text.insert("end", f"{index}. {name}: {format_seconds(seconds)}\n")
+        header = tk.Frame(win, bg="#f7f4ef")
+        header.pack(fill="x", padx=18, pady=(16, 10))
+        tk.Label(header, text="\u4eca\u65e5\u65f6\u95f4\u770b\u677f", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 18, "bold")).pack(anchor="w")
+        tk.Label(header, text=f"\u65e5\u671f\uff1a{self.tracker.current_day}    \u6570\u636e\uff1a{self.tracker.path.name}", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(3, 0))
 
-        text.insert("end", "\n\u7a97\u53e3\u8017\u65f6\u6392\u884c\n")
-        for index, item in enumerate(self.tracker.top_windows(12), start=1):
-            title = item.get("title", "")[:70]
-            text.insert("end", f"{index}. {item.get('process')}: {format_seconds(item.get('seconds', 0))} - {title}\n")
-        text.configure(state="disabled")
+        apps = self.tracker.top_apps(6)
+        windows = self.tracker.top_windows(8)
+        total_seconds = self.total_activity_seconds()
+        app_count = len(self.tracker.data.get("apps", {}))
+        window_count = len(self.tracker.data.get("windows", {}))
 
-        bottom = tk.Frame(win)
-        bottom.pack(fill="x", padx=8, pady=8)
-        tk.Button(bottom, text="\u5237\u65b0", command=self.open_stats).pack(side="left")
-        tk.Button(bottom, text="\u64ad\u62a5\u603b\u7ed3", command=lambda: self.speak(self.daily_summary_sentence())).pack(side="left", padx=6)
+        cards = tk.Frame(win, bg="#f7f4ef")
+        cards.pack(fill="x", padx=18, pady=(0, 12))
+        self.make_stat_card(cards, "\u603b\u8bb0\u5f55\u65f6\u957f", format_seconds(total_seconds), "#4c78a8").pack(side="left", padx=(0, 12))
+        self.make_stat_card(cards, "\u6d89\u53ca\u5e94\u7528", f"{app_count} \u4e2a", "#54a24b").pack(side="left", padx=(0, 12))
+        top_name = apps[0][0][:14] if apps else "\u6682\u65e0"
+        self.make_stat_card(cards, "\u6700\u957f\u4f7f\u7528", top_name, "#f58518").pack(side="left")
+
+        chart = tk.Canvas(win, width=720, height=282, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        chart.pack(fill="x", padx=18, pady=(0, 12))
+        self.draw_app_chart(chart, apps)
+
+        ranking = tk.Canvas(win, width=720, height=318, bg="#ffffff", highlightthickness=1, highlightbackground="#d8d1c7")
+        ranking.pack(fill="both", expand=True, padx=18, pady=(0, 10))
+        self.draw_window_ranking(ranking, windows)
+
+        bottom = tk.Frame(win, bg="#f7f4ef")
+        bottom.pack(fill="x", padx=18, pady=(0, 14))
+        tk.Label(bottom, text=f"\u5171 {window_count} \u4e2a\u7a97\u53e3\u8bb0\u5f55", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(side="left")
+        tk.Button(bottom, text="\u5237\u65b0", command=self.open_stats).pack(side="right")
+        tk.Button(bottom, text="\u64ad\u62a5\u603b\u7ed3", command=lambda: self.speak(self.daily_summary_sentence())).pack(side="right", padx=6)
         tk.Button(bottom, text="\u5173\u95ed", command=win.destroy).pack(side="right")
 
     def maybe_walk(self) -> None:
