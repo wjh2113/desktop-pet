@@ -29,6 +29,20 @@ FOCUS_SECONDS = 25 * 60
 BREAK_SECONDS = 5 * 60
 EYE_REMINDER_SECONDS = 20 * 60
 STAND_REMINDER_SECONDS = 45 * 60
+DISTRACTION_COOLDOWN_SECONDS = 90
+DISTRACTION_KEYWORDS = [
+    "bilibili",
+    "youtube",
+    "douyin",
+    "tiktok",
+    "netflix",
+    "steam",
+    "wegame",
+    "\u54d4\u54e9\u54d4\u54e9",
+    "\u6296\u97f3",
+    "\u6e38\u620f",
+    "\u76f4\u64ad",
+]
 
 
 @dataclass
@@ -252,10 +266,13 @@ class DesktopPet:
         self.chat_window: tk.Toplevel | None = None
         self.stats_window: tk.Toplevel | None = None
         self.tasks_window: tk.Toplevel | None = None
+        self.panel_window: tk.Toplevel | None = None
+        self.panel_visible = False
         self.tasks = self.load_tasks()
         self.active_stretch_seconds = 0
         self.last_eye_reminder = time.time()
         self.last_stand_reminder = time.time()
+        self.last_distraction_reminder = 0.0
 
         self.menu = tk.Menu(self.root, tearoff=0)
         self.menu.add_command(label="\u6295\u5582", command=self.feed)
@@ -272,6 +289,8 @@ class DesktopPet:
         self.menu.add_command(label="\u91cd\u7f6e\u756a\u8304\u949f", command=self.reset_pomodoro)
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
+        self.menu.add_command(label="\u8bed\u97f3\u547d\u4ee4", command=self.listen_voice_command)
+        self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
         self.menu.add_command(label="\u4eca\u65e5\u65f6\u95f4\u7edf\u8ba1", command=self.open_stats)
         self.menu.add_command(label="\u4eca\u65e5\u4e09\u4ef6\u4e8b", command=self.open_tasks)
         self.menu.add_command(label="\u751f\u6210\u4eca\u65e5\u603b\u7ed3", command=self.generate_report)
@@ -283,7 +302,7 @@ class DesktopPet:
         self.canvas.bind("<ButtonRelease-1>", self.end_drag)
         self.canvas.bind("<Double-Button-1>", self.change_mood)
         self.canvas.bind("<Button-3>", self.show_menu)
-        self.canvas.bind("<Enter>", lambda _event: self.say("\u6478\u6478\u5934\uff1f"))
+        self.canvas.bind("<Enter>", self.on_hover)
 
         self.root.bind("<Escape>", lambda _event: self.quit())
         self.root.bind("<space>", lambda _event: self.drop_from_top())
@@ -312,6 +331,11 @@ class DesktopPet:
     def show_menu(self, event: tk.Event) -> None:
         self.menu.tk_popup(event.x_root, event.y_root)
 
+    def on_hover(self, _event: tk.Event) -> None:
+        self.say("\u6478\u6478\u5934\uff1f")
+        if self.panel_visible:
+            self.open_panel()
+
     def say(self, text: str, duration: int = 150) -> None:
         self.message = text
         self.message_until = duration
@@ -325,6 +349,72 @@ class DesktopPet:
     def set_skin(self, skin: str) -> None:
         self.pet_skin = skin if skin in SKINS else "cat"
         self.set_mood("excited", f"\u6362\u6210{SKINS[self.pet_skin]}\u5566\uff01", 190)
+
+    def listen_voice_command(self) -> None:
+        self.say("\u6211\u5728\u542c\u547d\u4ee4\uff0c\u8bf7\u8bf4\u3002", 210)
+
+        def worker() -> None:
+            try:
+                recognized = self.recognize_speech_once()
+            except Exception as exc:
+                self.root.after(0, lambda: self.set_mood("worried", f"\u6ca1\u542c\u6e05\uff1a{exc}", 180))
+            else:
+                def respond() -> None:
+                    reply = self.handle_command(recognized) or f"\u6211\u542c\u5230\u4e86\uff1a{recognized}\u3002\u4f46\u8fd9\u4e0d\u50cf\u4e00\u4e2a\u53ef\u6267\u884c\u7684\u547d\u4ee4\u3002"
+                    self.speak(reply)
+
+                self.root.after(0, respond)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def toggle_panel(self) -> None:
+        self.panel_visible = not self.panel_visible
+        if self.panel_visible:
+            self.open_panel()
+        elif self.panel_window and self.panel_window.winfo_exists():
+            self.panel_window.destroy()
+
+    def open_panel(self) -> None:
+        if self.panel_window and self.panel_window.winfo_exists():
+            self.panel_window.lift()
+            self.refresh_panel()
+            return
+
+        win = tk.Toplevel(self.root)
+        self.panel_window = win
+        win.overrideredirect(True)
+        win.attributes("-topmost", True)
+        win.configure(bg="#f7f4ef")
+        win.geometry(f"250x156+{self.x + self.width + 12}+{max(20, self.y)}")
+
+        frame = tk.Frame(win, bg="#f7f4ef", highlightthickness=1, highlightbackground="#d8d1c7")
+        frame.pack(fill="both", expand=True)
+        self.panel_title = tk.Label(frame, text="\u840c\u5ba0\u5c0f\u9762\u677f", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 11, "bold"))
+        self.panel_title.pack(anchor="w", padx=10, pady=(8, 2))
+        self.panel_status = tk.Label(frame, text="", bg="#f7f4ef", fg="#5d544a", justify="left", font=("Microsoft YaHei UI", 9))
+        self.panel_status.pack(anchor="w", padx=10)
+        buttons = tk.Frame(frame, bg="#f7f4ef")
+        buttons.pack(fill="x", padx=8, pady=(8, 6))
+        tk.Button(buttons, text="\u756a\u8304", command=self.start_pomodoro).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u4efb\u52a1", command=self.open_tasks).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u7edf\u8ba1", command=self.open_stats).pack(side="left", padx=2)
+        tk.Button(buttons, text="\u8bed\u97f3", command=self.listen_voice_command).pack(side="left", padx=2)
+        tk.Button(frame, text="\u5173\u95ed\u5c0f\u9762\u677f", command=self.toggle_panel).pack(anchor="e", padx=8, pady=(0, 8))
+        self.refresh_panel()
+
+    def refresh_panel(self) -> None:
+        if not self.panel_window or not self.panel_window.winfo_exists():
+            return
+        done_count = sum(1 for task in self.tasks if task.get("done"))
+        current = self.tracker.get_active_window()
+        status = (
+            f"{self.pomodoro_label()}\n"
+            f"\u4e09\u4ef6\u4e8b\uff1a{done_count}/3\n"
+            f"\u5f53\u524d\uff1a{current.process[:22]}"
+        )
+        self.panel_status.configure(text=status)
+        self.panel_window.geometry(f"250x156+{self.x + self.width + 12}+{max(20, self.y)}")
+        self.root.after(2000, self.refresh_panel)
 
     def speak(self, text: str) -> None:
         self.say(text, 240)
@@ -508,6 +598,7 @@ class DesktopPet:
         try:
             self.tracker.sample()
             self.update_wellbeing_reminders()
+            self.update_focus_guard()
             now = time.time()
             if now - self.last_tracker_save > 30:
                 self.tracker.save()
@@ -515,6 +606,19 @@ class DesktopPet:
                 self.last_tracker_save = now
         finally:
             self.root.after(1000, self.activity_loop)
+
+    def update_focus_guard(self) -> None:
+        if not self.pomodoro_running or self.pomodoro_mode != "focus":
+            return
+        now = time.time()
+        if now - self.last_distraction_reminder < DISTRACTION_COOLDOWN_SECONDS:
+            return
+        info = self.tracker.get_active_window()
+        haystack = f"{info.process} {info.title}".lower()
+        if any(keyword.lower() in haystack for keyword in DISTRACTION_KEYWORDS):
+            self.last_distraction_reminder = now
+            self.set_mood("worried", "\u4f60\u521a\u521a\u8bf4\u8981\u4e13\u6ce8\u54e6\u3002", 210)
+            self.speak("\u4f60\u521a\u521a\u8bf4\u8981\u4e13\u6ce8\u54e6\u3002\u8981\u4e0d\u5148\u56de\u5230\u5f53\u524d\u4efb\u52a1\uff1f")
 
     def task_path(self) -> Path:
         DATA_DIR.mkdir(exist_ok=True)
@@ -744,10 +848,60 @@ class DesktopPet:
         entry.focus_set()
 
     def pet_reply(self, text: str) -> str:
+        command_reply = self.handle_command(text)
+        if command_reply:
+            return command_reply
+        return self.casual_reply(text)
+
+    def handle_command(self, text: str) -> str:
         lowered = text.lower()
+        command_text = text.replace("\uff0c", "").replace("\u3002", "").strip()
+        if "\u840c\u5ba0" in command_text or "\u5c0f\u52a9\u624b" in command_text:
+            command_text = command_text.replace("\u840c\u5ba0", "").replace("\u5c0f\u52a9\u624b", "").strip()
+
+        if "\u5f00\u59cb" in command_text and ("\u756a\u8304" in command_text or "\u4e13\u6ce8" in command_text):
+            self.start_pomodoro()
+            return "\u597d\uff0c\u5df2\u7ecf\u5f00\u59cb\u756a\u8304\u949f\u3002"
+        if "\u6682\u505c" in command_text and "\u756a\u8304" in command_text:
+            self.pause_pomodoro()
+            return "\u756a\u8304\u949f\u5df2\u6682\u505c\u3002"
+        if "\u91cd\u7f6e" in command_text and "\u756a\u8304" in command_text:
+            self.reset_pomodoro()
+            return "\u756a\u8304\u949f\u5df2\u91cd\u7f6e\u3002"
+        if "\u6253\u5f00" in command_text and ("\u5c0f\u9762\u677f" in command_text or "\u9762\u677f" in command_text):
+            self.panel_visible = True
+            self.open_panel()
+            return "\u5c0f\u9762\u677f\u5df2\u6253\u5f00\u3002"
+        if "\u5173\u95ed" in command_text and ("\u5c0f\u9762\u677f" in command_text or "\u9762\u677f" in command_text):
+            self.panel_visible = False
+            if self.panel_window and self.panel_window.winfo_exists():
+                self.panel_window.destroy()
+            return "\u5c0f\u9762\u677f\u5df2\u5173\u95ed\u3002"
+        if "\u4e0b\u843d" in command_text or "drop" in lowered or "\u5f39\u4e00\u4e0b" in command_text:
+            self.drop_from_top()
+            return "\u6765\u5566\uff0cQ \u5f39\u4e0b\u843d\uff01"
+        if "\u6295\u5582" in command_text or "\u5403" in command_text:
+            self.feed()
+            return "\u55f7\u545c\uff0c\u8c22\u8c22\u6295\u5582\uff01"
+        if "\u7761" in command_text or "\u4f11\u606f" in command_text:
+            self.nap()
+            return "\u597d\u7684\uff0c\u6211\u5148\u5b89\u9759\u4f11\u606f\u4e00\u4f1a\u513f\u3002"
+        if "\u732b" in command_text:
+            self.set_skin("cat")
+            return "\u5df2\u5207\u6362\u6210\u732b\u732b\u3002"
+        if "\u5154" in command_text:
+            self.set_skin("bunny")
+            return "\u5df2\u5207\u6362\u6210\u5c0f\u5154\u5b50\u3002"
+        if "\u718a" in command_text:
+            self.set_skin("bear")
+            return "\u5df2\u5207\u6362\u6210\u5c0f\u718a\u3002"
+        if "\u8001\u864e" in command_text or "\u864e" in command_text:
+            self.set_skin("tiger")
+            return "\u5df2\u5207\u6362\u6210\u5c0f\u8001\u864e\u3002"
         if "\u756a\u8304" in text or "pomodoro" in lowered:
             return f"\u5f53\u524d\u756a\u8304\u949f\uff1a{self.pomodoro_label()}\u3002"
         if "\u65f6\u95f4" in text or "\u7edf\u8ba1" in text or "stats" in lowered:
+            self.root.after(0, self.open_stats)
             return self.daily_summary_sentence()
         if "\u4e09\u4ef6\u4e8b" in text or "\u4efb\u52a1" in text or "task" in lowered:
             self.root.after(0, self.open_tasks)
@@ -755,13 +909,14 @@ class DesktopPet:
         if "\u603b\u7ed3" in text or "\u62a5\u544a" in text or "report" in lowered:
             self.root.after(0, self.generate_report)
             return "\u6211\u6765\u751f\u6210\u4eca\u65e5\u603b\u7ed3\u3002"
+        return ""
+
+    def casual_reply(self, text: str) -> str:
+        lowered = text.lower()
         if "\u7d2f" in text or "\u56f0" in text:
             return "\u90a3\u5c31\u7ad9\u8d77\u6765\u559d\u53e3\u6c34\uff0c\u6211\u7ed9\u4f60\u770b\u7740\u949f\u3002"
         if "\u4f60\u597d" in text or "hello" in lowered or "hi" == lowered:
             return "\u4f60\u597d\u5440\uff0c\u6211\u5728\u684c\u9762\u966a\u4f60\u3002"
-        if "\u5f00\u59cb" in text:
-            self.start_pomodoro()
-            return "\u597d\uff0c\u6211\u5df2\u7ecf\u5e2e\u4f60\u5f00\u59cb\u756a\u8304\u949f\u3002"
         return random.choice([
             "\u6536\u5230\u3002\u6211\u4f1a\u5728\u65c1\u8fb9\u966a\u4f60\u3002",
             "\u8fd9\u4e2a\u60f3\u6cd5\u4e0d\u9519\uff0c\u5148\u505a\u4e00\u5c0f\u6b65\u5427\u3002",
