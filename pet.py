@@ -2069,7 +2069,7 @@ class DesktopPet:
     def draw_bubble(self, text: str) -> None:
         display = self.fit_text(text, 26)
         self.draw_speech_bubble(18, 8, 242, 52)
-        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 7))
+        self.canvas.create_text(130, 29, text=display, fill="#4d3b38", font=("Microsoft YaHei UI", 8))
 
     def draw_speech_bubble(self, x1: float, y1: float, x2: float, y2: float) -> None:
         fill = "#fffdfb"
