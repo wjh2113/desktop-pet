@@ -794,20 +794,54 @@ class DesktopPet:
         win = tk.Toplevel(self.root)
         self.chat_window = win
         win.title("\u548c\u684c\u9762\u840c\u5ba0\u5bf9\u8bdd")
-        win.geometry("420x360")
+        win.geometry("460x500")
         win.attributes("-topmost", True)
+        win.configure(bg="#f7f4ef")
 
-        history = tk.Text(win, wrap="word", height=15, padx=8, pady=8)
-        history.pack(fill="both", expand=True)
-        entry = tk.Entry(win)
-        entry.pack(fill="x", padx=8, pady=(0, 8))
+        header = tk.Frame(win, bg="#f7f4ef")
+        header.pack(fill="x", padx=14, pady=(14, 8))
+        tk.Label(header, text="\u548c\u840c\u5ba0\u5bf9\u8bdd", bg="#f7f4ef", fg="#2f2925", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w")
+        tk.Label(header, text="\u53ef\u4ee5\u6253\u5b57\uff0c\u4e5f\u53ef\u4ee5\u70b9\u8bed\u97f3\u8f93\u5165\u8bf4\u4e00\u53e5\u3002", bg="#f7f4ef", fg="#7b7067", font=("Microsoft YaHei UI", 9)).pack(anchor="w", pady=(2, 0))
 
-        buttons = tk.Frame(win)
-        buttons.pack(fill="x", padx=8, pady=(0, 8))
+        history = tk.Text(
+            win,
+            wrap="word",
+            height=16,
+            padx=12,
+            pady=12,
+            bg="#fffdf8",
+            fg="#3f342f",
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground="#dfd5cb",
+            font=("Microsoft YaHei UI", 10),
+        )
+        history.pack(fill="both", expand=True, padx=14, pady=(0, 10))
+        history.tag_configure("pet", lmargin1=8, lmargin2=8, rmargin=70, spacing1=5, spacing3=7, background="#fff2f6", foreground="#4d3b38")
+        history.tag_configure("you", lmargin1=72, lmargin2=72, rmargin=8, spacing1=5, spacing3=7, background="#eef7ff", foreground="#2f3d4a")
+        history.tag_configure("system", lmargin1=28, lmargin2=28, rmargin=28, spacing1=5, spacing3=7, background="#f1eee8", foreground="#776a61")
+        history.tag_configure("name", foreground="#8f6b5f", font=("Microsoft YaHei UI", 9, "bold"))
+
+        input_card = tk.Frame(win, bg="#ffffff", highlightthickness=1, highlightbackground="#dfd5cb")
+        input_card.pack(fill="x", padx=14, pady=(0, 10))
+        entry = tk.Entry(input_card, relief="flat", bg="#ffffff", fg="#2f2925", font=("Microsoft YaHei UI", 11))
+        entry.pack(fill="x", padx=10, pady=10)
+
+        buttons = tk.Frame(win, bg="#f7f4ef")
+        buttons.pack(fill="x", padx=14, pady=(0, 12))
 
         def add_line(who: str, text: str) -> None:
-            history.insert("end", f"{who}: {text}\n")
+            tag = "system"
+            if who == "\u4f60":
+                tag = "you"
+            elif who == "\u840c\u5ba0":
+                tag = "pet"
+            history.configure(state="normal")
+            history.insert("end", f"{who}\n", ("name",))
+            history.insert("end", f"  {text}  \n", (tag,))
+            history.insert("end", "\n")
             history.see("end")
+            history.configure(state="disabled")
 
         def send() -> None:
             text = entry.get().strip()
@@ -839,11 +873,11 @@ class DesktopPet:
 
             threading.Thread(target=worker, daemon=True).start()
 
-        tk.Button(buttons, text="\u53d1\u9001", command=send).pack(side="left")
-        voice_button = tk.Button(buttons, text="\u8bed\u97f3\u8f93\u5165", command=voice_input)
+        tk.Button(buttons, text="\u53d1\u9001", command=send, width=8).pack(side="left")
+        voice_button = tk.Button(buttons, text="\u8bed\u97f3\u8f93\u5165", command=voice_input, width=10)
         voice_button.pack(side="left", padx=6)
-        tk.Button(buttons, text="\u64ad\u62a5\u72b6\u6001", command=lambda: self.speak(self.daily_summary_sentence())).pack(side="left", padx=6)
-        tk.Button(buttons, text="\u5173\u95ed", command=win.destroy).pack(side="right")
+        tk.Button(buttons, text="\u64ad\u62a5\u72b6\u6001", command=lambda: self.speak(self.daily_summary_sentence()), width=10).pack(side="left")
+        tk.Button(buttons, text="\u5173\u95ed", command=win.destroy, width=8).pack(side="right")
         entry.bind("<Return>", lambda _event: send())
         add_line("\u840c\u5ba0", "\u6211\u5728\uff0c\u53ef\u4ee5\u6253\u5b57\u6216\u70b9\u51fb\u8bed\u97f3\u8f93\u5165\u8ddf\u6211\u8bf4\u8bdd\u3002\u6211\u4f1a\u7528\u58f0\u97f3\u56de\u4f60\u3002")
         entry.focus_set()
