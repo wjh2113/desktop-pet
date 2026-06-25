@@ -8,12 +8,14 @@ import math
 import os
 import platform
 import random
+import shutil
 import struct
 import subprocess
 import threading
 import time
 import tkinter as tk
 import tkinter.messagebox as messagebox
+from tkinter import ttk
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -31,8 +33,11 @@ import win32com.client
 TRANSPARENT = "#ff00ff"
 FPS_MS = 33
 INK = "#5a4540"
-DATA_DIR = Path(__file__).with_name("data")
-REPORTS_DIR = Path(__file__).with_name("reports")
+LEGACY_DATA_DIR = Path(__file__).with_name("data")
+LEGACY_REPORTS_DIR = Path(__file__).with_name("reports")
+APP_STORAGE_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "DesktopPet"
+DATA_DIR = APP_STORAGE_DIR / "data"
+REPORTS_DIR = APP_STORAGE_DIR / "reports"
 CLOUD_CONFIG_PATH = DATA_DIR / "cloud-config.json"
 DEEPSEEK_CONFIG_PATH = DATA_DIR / "deepseek-config.json"
 PET_CONFIG_PATH = DATA_DIR / "pet-config.json"
@@ -59,6 +64,30 @@ DISTRACTION_KEYWORDS = [
     "\u6e38\u620f",
     "\u76f4\u64ad",
 ]
+
+
+def migrate_legacy_storage() -> None:
+    for source_dir, target_dir, patterns in [
+        (LEGACY_DATA_DIR, DATA_DIR, ("*.json",)),
+        (LEGACY_REPORTS_DIR, REPORTS_DIR, ("*.md",)),
+    ]:
+        if not source_dir.exists():
+            continue
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            continue
+        for pattern in patterns:
+            for source in source_dir.glob(pattern):
+                target = target_dir / source.name
+                if target.exists():
+                    continue
+                try:
+                    shutil.copy2(source, target)
+                except OSError:
+                    pass
+
+
 PERSONALITY_PACKS = {
     "gentle": "\u6e29\u67d4\u966a\u4f34\u578b",
     "teacher": "\u5c0f\u8001\u5e08\u578b",
@@ -176,7 +205,7 @@ class wave_open:
 
 class ActivityTracker:
     def __init__(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.current_day = today_key()
         self.path = DATA_DIR / f"activity-{self.current_day}.json"
         self.data = self.load_day()
@@ -274,7 +303,7 @@ class ActivityTracker:
 
 class CloudSyncClient:
     def __init__(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.config = self.load_config()
 
     def load_config(self) -> dict:
@@ -299,7 +328,7 @@ class CloudSyncClient:
         return defaults
 
     def save_config(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         tmp = CLOUD_CONFIG_PATH.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.config, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(CLOUD_CONFIG_PATH)
@@ -397,11 +426,12 @@ class CloudSyncClient:
                 continue
             if "/" in rel_path[8:] and rel_path.startswith("reports/"):
                 continue
-            target = Path(__file__).with_name(rel_path.split("/", 1)[0]) / rel_path.split("/", 1)[1]
+            target_root = DATA_DIR if rel_path.startswith("data/") else REPORTS_DIR
+            target = target_root / rel_path.split("/", 1)[1]
             remote_mtime = float(item.get("mtime") or 0)
             if target.exists() and target.stat().st_mtime >= remote_mtime - 0.5:
                 continue
-            target.parent.mkdir(exist_ok=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
             tmp = target.with_suffix(target.suffix + ".tmp")
             tmp.write_text(str(item.get("content", "")), encoding="utf-8")
             tmp.replace(target)
@@ -430,7 +460,7 @@ class CloudSyncClient:
 
 class DeepSeekChatClient:
     def __init__(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.config = self.load_config()
 
     def load_config(self) -> dict:
@@ -448,7 +478,7 @@ class DeepSeekChatClient:
         return {"base_url": "https://api.deepseek.com", "api_key": "", "model": "deepseek-v4-flash"}
 
     def save_config(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         tmp = DEEPSEEK_CONFIG_PATH.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.config, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(DEEPSEEK_CONFIG_PATH)
@@ -493,7 +523,7 @@ class DeepSeekChatClient:
 
 class PetPreferences:
     def __init__(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.data = self.load()
 
     def load(self) -> dict:
@@ -515,7 +545,7 @@ class PetPreferences:
         return default
 
     def save(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         tmp = PET_CONFIG_PATH.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(PET_CONFIG_PATH)
@@ -526,7 +556,7 @@ class PetPreferences:
 
 class CompanionState:
     def __init__(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.data = self.load()
 
     def load(self) -> dict:
@@ -546,7 +576,7 @@ class CompanionState:
         return default
 
     def save(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         tmp = COMPANION_STATE_PATH.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(COMPANION_STATE_PATH)
@@ -618,6 +648,7 @@ class WeatherClient:
 
 class DesktopPet:
     def __init__(self) -> None:
+        migrate_legacy_storage()
         self.root = tk.Tk()
         self.root.title("\u684c\u9762\u840c\u5ba0")
         self.root.overrideredirect(True)
@@ -900,7 +931,7 @@ class DesktopPet:
     def open_preferences(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u540d\u5b57/\u504f\u597d/\u6027\u683c")
-        win.geometry(self.pet_popup_geometry(540, 390))
+        win.geometry(self.pet_popup_geometry(540, 440))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
         tk.Label(frame, text="\u540d\u5b57\u3001\u504f\u597d\u548c\u6027\u683c", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
@@ -925,20 +956,22 @@ class DesktopPet:
         tk.Label(row, text="\u5929\u6c14\u57ce\u5e02", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
         saved_city = str(self.prefs.get("weather_city", "") or "")
         city_var = tk.StringVar(value=saved_city if saved_city in CHINA_WEATHER_CITIES else AUTO_WEATHER_CITY)
-        city_menu = tk.OptionMenu(row, city_var, AUTO_WEATHER_CITY, *CHINA_WEATHER_CITIES)
-        city_menu.configure(bg="#ffffff", fg="#23313f", activebackground="#eaf3fb", relief="flat", bd=0, highlightthickness=1, highlightbackground="#e1ebf3")
-        city_menu.pack(side="left", fill="x", expand=True)
+        city_combo = ttk.Combobox(row, textvariable=city_var, values=[AUTO_WEATHER_CITY, *CHINA_WEATHER_CITIES], state="readonly", height=12, font=("Microsoft YaHei UI", 10))
+        city_combo.pack(side="left", fill="x", expand=True, ipady=4)
         row = tk.Frame(form, bg="#f8fbff")
         row.pack(fill="x", pady=5)
         tk.Label(row, text="\u6027\u683c\u5305", bg="#f8fbff", fg="#40505f", width=12, anchor="w").pack(side="left")
         personality_var = tk.StringVar(value=str(self.prefs.get("personality", "gentle")))
-        tk.OptionMenu(row, personality_var, *PERSONALITY_PACKS.keys()).pack(side="left", fill="x", expand=True)
+        personality_combo = ttk.Combobox(row, textvariable=personality_var, values=list(PERSONALITY_PACKS.keys()), state="readonly", height=4, font=("Microsoft YaHei UI", 10))
+        personality_combo.pack(side="left", fill="x", expand=True, ipady=4)
         tk.Label(form, text="\u4e2a\u4eba\u504f\u597d", bg="#f8fbff", fg="#40505f").pack(anchor="w", pady=(8, 3))
-        pref_text = tk.Text(form, height=5, bg="#ffffff", fg="#23313f", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
+        pref_text = tk.Text(form, height=4, bg="#ffffff", fg="#23313f", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
         pref_text.insert("1.0", str(self.prefs.get("personal_preferences", "")))
         pref_text.pack(fill="x")
+        status_var = tk.StringVar(value="")
+        tk.Label(frame, textvariable=status_var, bg="#f8fbff", fg="#5f8f73", font=("Microsoft YaHei UI", 9)).pack(anchor="w", padx=16, pady=(8, 0))
 
-        def save() -> None:
+        def save(close: bool = False) -> None:
             for key, entry in entries.items():
                 self.prefs.data[key] = entry.get().strip()
             selected_city = city_var.get().strip()
@@ -946,11 +979,15 @@ class DesktopPet:
             self.prefs.data["personality"] = personality_var.get()
             self.prefs.data["personal_preferences"] = pref_text.get("1.0", "end").strip()
             self.prefs.save()
+            status_var.set("\u5df2\u4fdd\u5b58\u5230\u672c\u5730\u3002")
             self.set_mood("proud", f"\u597d\u7684\uff0c\u4ee5\u540e\u6211\u5c31\u53eb{self.pet_name()}\u3002", 220)
+            if close:
+                win.destroy()
 
         bottom = tk.Frame(frame, bg="#f8fbff")
-        bottom.pack(fill="x", padx=16, pady=14)
-        self.glass_button(bottom, "\u4fdd\u5b58", save, 8).pack(side="left")
+        bottom.pack(fill="x", padx=16, pady=(10, 14))
+        self.glass_button(bottom, "\u4fdd\u5b58", lambda: save(False), 8).pack(side="left")
+        self.glass_button(bottom, "\u4fdd\u5b58\u5e76\u5173\u95ed", lambda: save(True), 12).pack(side="left", padx=8)
         self.glass_button(bottom, "\u5173\u95ed", win.destroy, 8).pack(side="right")
 
     def open_achievements(self) -> None:
@@ -1326,7 +1363,7 @@ class DesktopPet:
             self.speak("\u4f60\u521a\u521a\u8bf4\u8981\u4e13\u6ce8\u54e6\u3002\u8981\u4e0d\u5148\u56de\u5230\u5f53\u524d\u4efb\u52a1\uff1f")
 
     def task_path(self) -> Path:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         return DATA_DIR / f"tasks-{today_key()}.json"
 
     def load_tasks(self) -> list[dict]:
@@ -1342,7 +1379,7 @@ class DesktopPet:
         return [{"text": "", "done": False} for _ in range(3)]
 
     def save_tasks(self) -> None:
-        DATA_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         tasks = self.tasks[:3]
         while len(tasks) < 3:
             tasks.append({"text": "", "done": False})
@@ -1434,7 +1471,7 @@ class DesktopPet:
         self.tracker.sample()
         self.tracker.save()
         self.save_tasks()
-        REPORTS_DIR.mkdir(exist_ok=True)
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         report_path = REPORTS_DIR / f"{today_key()}.md"
         apps = self.tracker.top_apps(8)
         windows = self.tracker.top_windows(8)
