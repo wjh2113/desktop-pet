@@ -364,7 +364,7 @@ class DesktopPet:
         sample_rate = 44100
         samples: list[int] = []
 
-        def add_burst(duration: float, start_freq: float, end_freq: float, volume: float, decay: float) -> None:
+        def add_burst(duration: float, start_freq: float, end_freq: float, volume: float, decay: float, brightness: float = 0.18) -> None:
             total = int(sample_rate * duration)
             for index in range(total):
                 t = index / sample_rate
@@ -372,13 +372,16 @@ class DesktopPet:
                 freq = start_freq + (end_freq - start_freq) * progress
                 envelope = math.exp(-decay * progress)
                 tone = math.sin(2 * math.pi * freq * t)
-                soft_click = math.sin(2 * math.pi * freq * 2.01 * t) * 0.22
-                samples.append(int((tone + soft_click) * envelope * volume))
+                overtone = math.sin(2 * math.pi * freq * 2.4 * t) * brightness
+                sparkle = math.sin(2 * math.pi * freq * 3.15 * t) * brightness * 0.38
+                samples.append(int((tone + overtone + sparkle) * envelope * volume))
 
         impact = min(max(speed / 24, 0.55), 1.0)
-        add_burst(0.075, 180, 115, 12000 * impact, 5.4)
+        add_burst(0.045, 260, 210, 7600 * impact, 7.0, 0.12)
+        samples.extend([0] * int(sample_rate * 0.012))
+        add_burst(0.095, 720, 1180, 9400 * impact, 4.8, 0.30)
         samples.extend([0] * int(sample_rate * 0.018))
-        add_burst(0.105, 520, 760, 7800 * impact, 4.2)
+        add_burst(0.055, 1320, 1560, 4300 * impact, 5.8, 0.34)
         self.play_wave_sound(samples, sample_rate)
 
     def change_mood(self, _event: tk.Event | None = None) -> None:
