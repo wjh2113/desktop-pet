@@ -468,6 +468,7 @@ class DesktopPet:
         self.pomodoro_time_var = tk.StringVar(value="")
         self.pomodoro_mode_var = tk.StringVar(value="")
         self.pomodoro_action_var = tk.StringVar(value="")
+        self.pomodoro_widget_visible = tk.BooleanVar(value=False)
         self.pomodoro_progress: tk.Canvas | None = None
         self.tasks = self.load_tasks()
         self.active_stretch_seconds = 0
@@ -487,7 +488,7 @@ class DesktopPet:
             skin_menu.add_command(label=skin_name, command=lambda value=skin_id: self.set_skin(value))
         self.menu.add_cascade(label="\u5207\u6362\u5f62\u8c61", menu=skin_menu)
         self.menu.add_separator()
-        self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u756a\u8304\u949f", command=self.toggle_pomodoro_widget)
+        self.menu.add_checkbutton(label="\u756a\u8304\u949f", variable=self.pomodoro_widget_visible, command=self.toggle_pomodoro_widget)
         self.menu.add_separator()
         self.menu.add_command(label="\u548c\u840c\u5ba0\u5bf9\u8bdd", command=self.open_chat)
         self.menu.add_command(label="\u663e\u793a/\u9690\u85cf\u5c0f\u9762\u677f", command=self.toggle_panel)
@@ -591,19 +592,21 @@ class DesktopPet:
             self.panel_window.destroy()
 
     def toggle_pomodoro_widget(self) -> None:
-        if self.pomodoro_widget and self.pomodoro_widget.winfo_exists():
+        if self.pomodoro_widget_visible.get():
+            self.open_pomodoro_widget()
+        elif self.pomodoro_widget and self.pomodoro_widget.winfo_exists():
             self.pomodoro_widget.destroy()
-            return
-        self.open_pomodoro_widget()
 
     def open_pomodoro_widget(self) -> None:
         if self.pomodoro_widget and self.pomodoro_widget.winfo_exists():
+            self.pomodoro_widget_visible.set(True)
             self.pomodoro_widget.lift()
             self.refresh_pomodoro_widget()
             return
 
         win = tk.Toplevel(self.root)
         self.pomodoro_widget = win
+        self.pomodoro_widget_visible.set(True)
         win.overrideredirect(True)
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.86)
@@ -635,9 +638,14 @@ class DesktopPet:
         button_style = {"relief": "flat", "bd": 0, "font": ("Microsoft YaHei UI", 8), "cursor": "hand2"}
         tk.Button(buttons, textvariable=self.pomodoro_action_var, command=self.toggle_pomodoro_running, width=6, bg="#ffffff", fg="#40505f", activebackground="#eaf3fb", **button_style).pack(side="left", padx=2)
         tk.Button(buttons, text="\u91cd\u7f6e", command=self.reset_pomodoro, width=6, bg="#ffffff", fg="#6b7c8c", activebackground="#eaf3fb", **button_style).pack(side="left", padx=2)
-        tk.Button(buttons, text="\u00d7", command=win.destroy, width=2, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", **button_style).pack(side="right", padx=2)
+        tk.Button(buttons, text="\u00d7", command=self.close_pomodoro_widget, width=2, bg=glass_bg, fg="#8da0af", activebackground="#eaf3fb", **button_style).pack(side="right", padx=2)
 
         self.refresh_pomodoro_widget()
+
+    def close_pomodoro_widget(self) -> None:
+        self.pomodoro_widget_visible.set(False)
+        if self.pomodoro_widget and self.pomodoro_widget.winfo_exists():
+            self.pomodoro_widget.destroy()
 
     def toggle_pomodoro_running(self) -> None:
         if self.pomodoro_running:
@@ -647,6 +655,7 @@ class DesktopPet:
 
     def refresh_pomodoro_widget(self) -> None:
         if not self.pomodoro_widget or not self.pomodoro_widget.winfo_exists():
+            self.pomodoro_widget_visible.set(False)
             return
         total = FOCUS_SECONDS if self.pomodoro_mode == "focus" else BREAK_SECONDS
         remaining = max(0, self.pomodoro_remaining)
