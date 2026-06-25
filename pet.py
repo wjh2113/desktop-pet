@@ -45,6 +45,7 @@ STAND_REMINDER_SECONDS = 45 * 60
 DISTRACTION_COOLDOWN_SECONDS = 90
 CLOUD_SYNC_SECONDS = 5 * 60
 CLOUD_TIMEOUT_SECONDS = 10
+DEFAULT_CLOUD_ENDPOINT = "http://111.228.6.222:3000"
 DISTRACTION_KEYWORDS = [
     "bilibili",
     "youtube",
@@ -269,21 +270,25 @@ class CloudSyncClient:
         self.config = self.load_config()
 
     def load_config(self) -> dict:
-        if CLOUD_CONFIG_PATH.exists():
-            try:
-                data = json.loads(CLOUD_CONFIG_PATH.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    return data
-            except json.JSONDecodeError:
-                pass
-        return {
-            "endpoint": "",
+        defaults = {
+            "endpoint": DEFAULT_CLOUD_ENDPOINT,
             "username": "",
             "token": "",
             "device_id": uuid.uuid4().hex,
             "device_name": platform.node() or "Windows PC",
             "last_sync_at": "",
         }
+        if CLOUD_CONFIG_PATH.exists():
+            try:
+                data = json.loads(CLOUD_CONFIG_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    merged = {**defaults, **data}
+                    if not str(merged.get("endpoint", "")).strip():
+                        merged["endpoint"] = DEFAULT_CLOUD_ENDPOINT
+                    return merged
+            except json.JSONDecodeError:
+                pass
+        return defaults
 
     def save_config(self) -> None:
         DATA_DIR.mkdir(exist_ok=True)
