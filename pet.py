@@ -510,7 +510,6 @@ class DesktopPet:
         self.root.bind("<Escape>", lambda _event: self.quit())
         self.root.bind("<space>", lambda _event: self.drop_from_top())
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
-        self.root.after(400, self.open_pomodoro_widget)
         if self.cloud.is_configured():
             self.root.after(1500, lambda: self.sync_cloud_async(manual=False))
         self.root.after(1000, self.activity_loop)
