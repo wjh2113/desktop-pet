@@ -22,6 +22,7 @@ import win32com.client
 
 TRANSPARENT = "#ff00ff"
 FPS_MS = 33
+INK = "#5a4540"
 DATA_DIR = Path(__file__).with_name("data")
 REPORTS_DIR = Path(__file__).with_name("reports")
 RECOGNIZER_SCRIPT = Path(__file__).with_name("scripts") / "recognize-once.ps1"
@@ -1146,7 +1147,7 @@ class DesktopPet:
         tail_at: str | None = None,
         fill: str = "#ffffff",
     ) -> None:
-        outline = "#3d2f37"
+        outline = "#5a4540"
         shadow = "#d8d1c7"
         self.canvas.create_rectangle(x1 + 3, y1 + 3, x2 + 3, y2 + 3, fill=shadow, outline="")
         self.canvas.create_oval(x1, y1, x1 + radius * 2, y1 + radius * 2, fill=fill, outline=outline, width=2)
@@ -1170,57 +1171,58 @@ class DesktopPet:
 
     def draw_tail(self, cx: float, cy: float, wag: float) -> None:
         if self.pet_skin == "bunny":
-            self.canvas.create_oval(cx + 50, cy + 33 + wag * 0.2, cx + 82, cy + 64 + wag * 0.2, fill="#ffffff", outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx + 50, cy + 33 + wag * 0.2, cx + 82, cy + 64 + wag * 0.2, fill="#ffffff", outline="#5a4540", width=2)
             return
         if self.pet_skin == "bear":
-            self.canvas.create_oval(cx + 54, cy + 36, cx + 78, cy + 60, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx + 54, cy + 36, cx + 78, cy + 60, fill=self.mood.body, outline="#5a4540", width=2)
             return
         if self.pet_skin == "tiger":
             tail_lift = self.squash * 8
             points = [cx + 62, cy + 24, cx + 96, cy + 5 + wag - tail_lift, cx + 92, cy - 27 + wag - tail_lift, cx + 58, cy - 8]
-            self.canvas.create_polygon(points, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
+            self.canvas.create_polygon(points, fill=self.mood.body, outline="#5a4540", width=2, smooth=True)
             for offset in [0, 16, 31]:
-                self.canvas.create_line(cx + 65 + offset * 0.7, cy + 18 - offset + wag - tail_lift, cx + 80 + offset * 0.45, cy + 4 - offset + wag - tail_lift, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + 65 + offset * 0.7, cy + 18 - offset + wag - tail_lift, cx + 80 + offset * 0.45, cy + 4 - offset + wag - tail_lift, fill="#5a4540", width=2, capstyle=tk.ROUND)
             return
 
         tail_lift = self.squash * 8
         points = [cx + 62, cy + 22, cx + 95, cy - 2 + wag - tail_lift, cx + 82, cy - 36 + wag - tail_lift, cx + 54, cy - 12]
-        self.canvas.create_polygon(points, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
-        self.canvas.create_oval(cx + 67, cy - 45 + wag - tail_lift, cx + 93, cy - 18 + wag - tail_lift, fill="#ffffff", outline="#3d2f37", width=3)
+        self.canvas.create_polygon(points, fill=self.mood.body, outline="#5a4540", width=2, smooth=True)
+        self.canvas.create_oval(cx + 67, cy - 45 + wag - tail_lift, cx + 93, cy - 18 + wag - tail_lift, fill="#ffffff", outline="#5a4540", width=2)
 
     def draw_body(self, cx: float, cy: float) -> None:
         body_w = 67 * (1 + self.squash * 0.28)
         body_top = 50 * (1 - self.squash * 0.34)
         body_bottom = 78 * (1 - self.squash * 0.24)
         belly_w = 44 * (1 + self.squash * 0.22)
-        self.canvas.create_oval(cx - body_w, cy - body_top, cx + body_w, cy + body_bottom, fill=self.mood.body, outline="#3d2f37", width=3)
+        self.canvas.create_oval(cx - body_w, cy - body_top, cx + body_w, cy + body_bottom, fill=self.mood.body, outline=INK, width=2)
+        self.canvas.create_oval(cx - body_w + 18, cy - body_top + 14, cx - body_w + 43, cy - body_top + 33, fill="#ffffff", outline="", stipple="gray25")
         self.canvas.create_oval(cx - belly_w, cy + 4, cx + belly_w, cy + 70 * (1 - self.squash * 0.18), fill="#fff8fb", outline="")
 
     def draw_ears(self, cx: float, cy: float) -> None:
         ear_squish = max(self.squash, 0) * 12
         if self.pet_skin == "bunny":
-            self.canvas.create_oval(cx - 55, cy - 112 + ear_squish, cx - 22, cy - 22, fill=self.mood.body, outline="#3d2f37", width=3)
-            self.canvas.create_oval(cx + 22, cy - 112 + ear_squish, cx + 55, cy - 22, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx - 55, cy - 112 + ear_squish, cx - 22, cy - 22, fill=self.mood.body, outline="#5a4540", width=2)
+            self.canvas.create_oval(cx + 22, cy - 112 + ear_squish, cx + 55, cy - 22, fill=self.mood.body, outline="#5a4540", width=2)
             self.canvas.create_oval(cx - 46, cy - 96 + ear_squish, cx - 31, cy - 34, fill="#fff8fb", outline="")
             self.canvas.create_oval(cx + 31, cy - 96 + ear_squish, cx + 46, cy - 34, fill="#fff8fb", outline="")
             return
         if self.pet_skin == "bear":
-            self.canvas.create_oval(cx - 62, cy - 65 + ear_squish, cx - 22, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
-            self.canvas.create_oval(cx + 22, cy - 65 + ear_squish, cx + 62, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx - 62, cy - 65 + ear_squish, cx - 22, cy - 25 + ear_squish, fill=self.mood.body, outline="#5a4540", width=2)
+            self.canvas.create_oval(cx + 22, cy - 65 + ear_squish, cx + 62, cy - 25 + ear_squish, fill=self.mood.body, outline="#5a4540", width=2)
             self.canvas.create_oval(cx - 50, cy - 54 + ear_squish, cx - 34, cy - 37 + ear_squish, fill="#fff8fb", outline="")
             self.canvas.create_oval(cx + 34, cy - 54 + ear_squish, cx + 50, cy - 37 + ear_squish, fill="#fff8fb", outline="")
             return
         if self.pet_skin == "tiger":
-            self.canvas.create_oval(cx - 62, cy - 64 + ear_squish, cx - 24, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
-            self.canvas.create_oval(cx + 24, cy - 64 + ear_squish, cx + 62, cy - 25 + ear_squish, fill=self.mood.body, outline="#3d2f37", width=3)
+            self.canvas.create_oval(cx - 62, cy - 64 + ear_squish, cx - 24, cy - 25 + ear_squish, fill=self.mood.body, outline="#5a4540", width=2)
+            self.canvas.create_oval(cx + 24, cy - 64 + ear_squish, cx + 62, cy - 25 + ear_squish, fill=self.mood.body, outline="#5a4540", width=2)
             self.canvas.create_oval(cx - 50, cy - 54 + ear_squish, cx - 36, cy - 38 + ear_squish, fill="#fff8fb", outline="")
             self.canvas.create_oval(cx + 36, cy - 54 + ear_squish, cx + 50, cy - 38 + ear_squish, fill="#fff8fb", outline="")
             return
 
         left = [cx - 51, cy - 36, cx - 35, cy - 82 + ear_squish, cx - 8, cy - 41]
         right = [cx + 51, cy - 36, cx + 35, cy - 82 + ear_squish, cx + 8, cy - 41]
-        self.canvas.create_polygon(left, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
-        self.canvas.create_polygon(right, fill=self.mood.body, outline="#3d2f37", width=3, smooth=True)
+        self.canvas.create_polygon(left, fill=self.mood.body, outline="#5a4540", width=2, smooth=True)
+        self.canvas.create_polygon(right, fill=self.mood.body, outline="#5a4540", width=2, smooth=True)
         self.canvas.create_polygon([cx - 39, cy - 42, cx - 34, cy - 65 + ear_squish, cx - 20, cy - 44], fill="#fff8fb", outline="")
         self.canvas.create_polygon([cx + 39, cy - 42, cx + 34, cy - 65 + ear_squish, cx + 20, cy - 44], fill="#fff8fb", outline="")
 
@@ -1229,79 +1231,81 @@ class DesktopPet:
         eye_y = cy - 7 + face_drop
         expression = self.mood.expression
         if self.is_sleeping or expression == "sleepy":
-            self.canvas.create_arc(cx - 34, eye_y - 4, cx - 14, eye_y + 13, start=190, extent=150, style=tk.ARC, outline="#3d2f37", width=3)
-            self.canvas.create_arc(cx + 14, eye_y - 4, cx + 34, eye_y + 13, start=200, extent=150, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx - 34, eye_y - 4, cx - 14, eye_y + 13, start=190, extent=150, style=tk.ARC, outline="#5a4540", width=2)
+            self.canvas.create_arc(cx + 14, eye_y - 4, cx + 34, eye_y + 13, start=200, extent=150, style=tk.ARC, outline="#5a4540", width=2)
         elif expression == "excited":
-            self.canvas.create_text(cx - 25, eye_y, text="\u2605", fill="#3d2f37", font=("Segoe UI Symbol", 16, "bold"))
-            self.canvas.create_text(cx + 25, eye_y, text="\u2605", fill="#3d2f37", font=("Segoe UI Symbol", 16, "bold"))
+            self.canvas.create_text(cx - 25, eye_y, text="\u2605", fill="#5a4540", font=("Segoe UI Symbol", 16, "bold"))
+            self.canvas.create_text(cx + 25, eye_y, text="\u2605", fill="#5a4540", font=("Segoe UI Symbol", 16, "bold"))
         elif expression == "focused":
-            self.canvas.create_line(cx - 39, eye_y - 14, cx - 14, eye_y - 9, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_line(cx + 14, eye_y - 9, cx + 39, eye_y - 14, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_oval(cx - 34, eye_y - 9, cx - 16, eye_y + 12, fill="#3d2f37", outline="")
-            self.canvas.create_oval(cx + 16, eye_y - 9, cx + 34, eye_y + 12, fill="#3d2f37", outline="")
+            self.canvas.create_line(cx - 39, eye_y - 14, cx - 14, eye_y - 9, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 14, eye_y - 9, cx + 39, eye_y - 14, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 34, eye_y - 9, cx - 16, eye_y + 12, fill="#5a4540", outline="")
+            self.canvas.create_oval(cx + 16, eye_y - 9, cx + 34, eye_y + 12, fill="#5a4540", outline="")
         elif expression == "proud":
-            self.canvas.create_arc(cx - 36, eye_y - 8, cx - 14, eye_y + 12, start=200, extent=145, style=tk.ARC, outline="#3d2f37", width=3)
-            self.canvas.create_arc(cx + 14, eye_y - 8, cx + 36, eye_y + 12, start=195, extent=145, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx - 36, eye_y - 8, cx - 14, eye_y + 12, start=200, extent=145, style=tk.ARC, outline="#5a4540", width=2)
+            self.canvas.create_arc(cx + 14, eye_y - 8, cx + 36, eye_y + 12, start=195, extent=145, style=tk.ARC, outline="#5a4540", width=2)
         elif expression == "worried":
-            self.canvas.create_line(cx - 39, eye_y - 12, cx - 16, eye_y - 17, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_line(cx + 16, eye_y - 17, cx + 39, eye_y - 12, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_oval(cx - 34, eye_y - 8, cx - 16, eye_y + 11, fill="#3d2f37", outline="")
-            self.canvas.create_oval(cx + 16, eye_y - 8, cx + 34, eye_y + 11, fill="#3d2f37", outline="")
+            self.canvas.create_line(cx - 39, eye_y - 12, cx - 16, eye_y - 17, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 16, eye_y - 17, cx + 39, eye_y - 12, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_oval(cx - 34, eye_y - 8, cx - 16, eye_y + 11, fill="#5a4540", outline="")
+            self.canvas.create_oval(cx + 16, eye_y - 8, cx + 34, eye_y + 11, fill="#5a4540", outline="")
         elif expression == "curious":
-            self.canvas.create_oval(cx - 36, eye_y - 13, cx - 14, eye_y + 15, fill="#3d2f37", outline="")
-            self.canvas.create_oval(cx + 17, eye_y - 9, cx + 33, eye_y + 11, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx - 36, eye_y - 13, cx - 14, eye_y + 15, fill="#5a4540", outline="")
+            self.canvas.create_oval(cx + 17, eye_y - 9, cx + 33, eye_y + 11, fill="#5a4540", outline="")
             self.canvas.create_oval(cx - 29, eye_y - 8, cx - 23, eye_y - 2, fill="#ffffff", outline="")
         elif blink:
-            self.canvas.create_line(cx - 35, eye_y + 2, cx - 16, eye_y + 2, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_line(cx + 16, eye_y + 2, cx + 35, eye_y + 2, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx - 35, eye_y + 2, cx - 16, eye_y + 2, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 16, eye_y + 2, cx + 35, eye_y + 2, fill="#5a4540", width=2, capstyle=tk.ROUND)
         else:
-            self.canvas.create_oval(cx - 35, eye_y - 12, cx - 15, eye_y + 14, fill="#3d2f37", outline="")
-            self.canvas.create_oval(cx + 15, eye_y - 12, cx + 35, eye_y + 14, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx - 35, eye_y - 12, cx - 15, eye_y + 14, fill="#5a4540", outline="")
+            self.canvas.create_oval(cx + 15, eye_y - 12, cx + 35, eye_y + 14, fill="#5a4540", outline="")
             self.canvas.create_oval(cx - 29, eye_y - 8, cx - 23, eye_y - 2, fill="#ffffff", outline="")
             self.canvas.create_oval(cx + 21, eye_y - 8, cx + 27, eye_y - 2, fill="#ffffff", outline="")
 
-        self.canvas.create_oval(cx - 9, cy + 12 + face_drop, cx + 9, cy + 22 + face_drop, fill="#3d2f37", outline="")
+        self.canvas.create_oval(cx - 8, cy + 12 + face_drop, cx + 8, cy + 21 + face_drop, fill=INK, outline="")
         if expression == "worried":
-            self.canvas.create_arc(cx - 18, cy + 29 + face_drop, cx + 18, cy + 52 + face_drop, start=25, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx - 18, cy + 29 + face_drop, cx + 18, cy + 52 + face_drop, start=25, extent=130, style=tk.ARC, outline="#5a4540", width=2)
         elif expression == "hungry":
-            self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
-            self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
+            self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#5a4540", width=2)
+            self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#5a4540", width=2)
             self.canvas.create_oval(cx + 4, cy + 31 + face_drop, cx + 14, cy + 42 + face_drop, fill="#ff6f91", outline="")
         elif expression == "focused":
-            self.canvas.create_line(cx - 13, cy + 35 + face_drop, cx + 13, cy + 35 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx - 13, cy + 35 + face_drop, cx + 13, cy + 35 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
         else:
-            self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
-            self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#3d2f37", width=3)
-        self.canvas.create_oval(cx - 52, cy + 14 + face_drop, cx - 32, cy + 29 + face_drop, fill=self.mood.cheek, outline="")
-        self.canvas.create_oval(cx + 32, cy + 14 + face_drop, cx + 52, cy + 29 + face_drop, fill=self.mood.cheek, outline="")
+            self.canvas.create_arc(cx - 22, cy + 14 + face_drop, cx, cy + 38 + face_drop, start=200, extent=130, style=tk.ARC, outline="#5a4540", width=2)
+            self.canvas.create_arc(cx, cy + 14 + face_drop, cx + 22, cy + 38 + face_drop, start=210, extent=130, style=tk.ARC, outline="#5a4540", width=2)
+        self.canvas.create_oval(cx - 54, cy + 14 + face_drop, cx - 31, cy + 30 + face_drop, fill=self.mood.cheek, outline="")
+        self.canvas.create_oval(cx + 31, cy + 14 + face_drop, cx + 54, cy + 30 + face_drop, fill=self.mood.cheek, outline="")
+        self.canvas.create_oval(cx - 48, cy + 17 + face_drop, cx - 42, cy + 22 + face_drop, fill="#ffffff", outline="")
+        self.canvas.create_oval(cx + 42, cy + 17 + face_drop, cx + 48, cy + 22 + face_drop, fill="#ffffff", outline="")
         self.draw_skin_marks(cx, cy, face_drop)
 
     def draw_skin_marks(self, cx: float, cy: float, face_drop: float) -> None:
         if self.pet_skin == "cat":
             for side in [-1, 1]:
-                self.canvas.create_line(cx + side * 42, cy + 2 + face_drop, cx + side * 62, cy - 2 + face_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
-                self.canvas.create_line(cx + side * 42, cy + 10 + face_drop, cx + side * 64, cy + 11 + face_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
-                self.canvas.create_line(cx + side * 42, cy + 18 + face_drop, cx + side * 60, cy + 24 + face_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 42, cy + 2 + face_drop, cx + side * 62, cy - 2 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 42, cy + 10 + face_drop, cx + side * 64, cy + 11 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 42, cy + 18 + face_drop, cx + side * 60, cy + 24 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
         elif self.pet_skin == "bunny":
             self.canvas.create_oval(cx - 62, cy + 26 + face_drop, cx - 50, cy + 39 + face_drop, fill="#ffffff", outline="")
             self.canvas.create_oval(cx + 50, cy + 26 + face_drop, cx + 62, cy + 39 + face_drop, fill="#ffffff", outline="")
         elif self.pet_skin == "bear":
             self.canvas.create_oval(cx - 22, cy + 6 + face_drop, cx + 22, cy + 42 + face_drop, fill="#fff8fb", outline="")
-            self.canvas.create_oval(cx - 8, cy + 12 + face_drop, cx + 8, cy + 22 + face_drop, fill="#3d2f37", outline="")
+            self.canvas.create_oval(cx - 8, cy + 12 + face_drop, cx + 8, cy + 22 + face_drop, fill="#5a4540", outline="")
         elif self.pet_skin == "tiger":
-            self.canvas.create_line(cx - 18, cy - 38 + face_drop, cx - 8, cy - 24 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_line(cx, cy - 42 + face_drop, cx, cy - 24 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-            self.canvas.create_line(cx + 18, cy - 38 + face_drop, cx + 8, cy - 24 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+            self.canvas.create_line(cx - 18, cy - 38 + face_drop, cx - 8, cy - 24 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_line(cx, cy - 42 + face_drop, cx, cy - 24 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
+            self.canvas.create_line(cx + 18, cy - 38 + face_drop, cx + 8, cy - 24 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
             for side in [-1, 1]:
-                self.canvas.create_line(cx + side * 46, cy - 18 + face_drop, cx + side * 63, cy - 26 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
-                self.canvas.create_line(cx + side * 49, cy - 3 + face_drop, cx + side * 66, cy - 7 + face_drop, fill="#3d2f37", width=3, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 46, cy - 18 + face_drop, cx + side * 63, cy - 26 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
+                self.canvas.create_line(cx + side * 49, cy - 3 + face_drop, cx + side * 66, cy - 7 + face_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
 
     def draw_paws(self, cx: float, cy: float) -> None:
         paw_drop = max(self.squash, 0) * 11
-        self.canvas.create_oval(cx - 55, cy + 52 + paw_drop, cx - 20, cy + 84 + paw_drop, fill=self.mood.body, outline="#3d2f37", width=3)
-        self.canvas.create_oval(cx + 20, cy + 52 + paw_drop, cx + 55, cy + 84 + paw_drop, fill=self.mood.body, outline="#3d2f37", width=3)
-        self.canvas.create_line(cx - 45, cy + 69 + paw_drop, cx - 32, cy + 70 + paw_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
-        self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#3d2f37", width=2, capstyle=tk.ROUND)
+        self.canvas.create_oval(cx - 55, cy + 52 + paw_drop, cx - 20, cy + 84 + paw_drop, fill=self.mood.body, outline="#5a4540", width=2)
+        self.canvas.create_oval(cx + 20, cy + 52 + paw_drop, cx + 55, cy + 84 + paw_drop, fill=self.mood.body, outline="#5a4540", width=2)
+        self.canvas.create_line(cx - 45, cy + 69 + paw_drop, cx - 32, cy + 70 + paw_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
+        self.canvas.create_line(cx + 32, cy + 70 + paw_drop, cx + 45, cy + 69 + paw_drop, fill="#5a4540", width=2, capstyle=tk.ROUND)
 
     def draw_bubble(self, text: str) -> None:
         display = self.fit_text(text, 16)
