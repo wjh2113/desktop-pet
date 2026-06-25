@@ -813,6 +813,29 @@ class DesktopPet:
         frame.pack(fill="both", expand=True)
         return frame
 
+    def pet_popup_geometry(self, width: int, height: int, gap: int = 12) -> str:
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        margin = 10
+        right_x = self.x + self.width + gap
+        left_x = self.x - width - gap
+        if right_x + width <= screen_w - margin:
+            x = right_x
+        elif left_x >= margin:
+            x = left_x
+        else:
+            max_x = max(margin, screen_w - width - margin)
+            x = min(max(margin, self.x + (self.width - width) // 2), max_x)
+
+        y = self.y + max(0, (self.height - height) // 2)
+        if y + height > screen_h - margin:
+            y = self.y - height - gap
+        if y < margin:
+            y = self.y + self.height + gap
+        max_y = max(margin, screen_h - height - margin)
+        y = min(max(margin, y), max_y)
+        return f"{width}x{height}+{int(x)}+{int(y)}"
+
     def glass_button(self, parent: tk.Widget, text: str, command, width: int | None = None) -> tk.Button:
         return tk.Button(
             parent,
@@ -864,7 +887,7 @@ class DesktopPet:
     def open_preferences(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u540d\u5b57/\u504f\u597d/\u6027\u683c")
-        win.geometry("540x390")
+        win.geometry(self.pet_popup_geometry(540, 390))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
         tk.Label(frame, text="\u540d\u5b57\u3001\u504f\u597d\u548c\u6027\u683c", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
@@ -911,7 +934,7 @@ class DesktopPet:
     def open_achievements(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u6210\u5c31\u6253\u5361")
-        win.geometry("420x320")
+        win.geometry(self.pet_popup_geometry(420, 320))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
         tk.Label(frame, text="\u6210\u5c31\u6253\u5361", bg="#f8fbff", fg="#23313f", font=("Microsoft YaHei UI", 16, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
@@ -1021,12 +1044,7 @@ class DesktopPet:
             self.pomodoro_progress.create_rectangle(0, 3, max(5, int(width * progress)), 9, fill=color, outline="")
             self.pomodoro_progress.create_oval(max(0, int(width * progress) - 4), 1, max(8, int(width * progress) + 4), 11, fill="#ffffff", outline=color)
 
-        x = self.x + self.width + 10
-        y = max(20, self.y + 18)
-        screen_w = self.root.winfo_screenwidth()
-        if x + 158 > screen_w:
-            x = max(10, self.x - 162)
-        self.pomodoro_widget.geometry(f"152x116+{int(x)}+{int(y)}")
+        self.pomodoro_widget.geometry(self.pet_popup_geometry(152, 116, gap=10))
         self.root.after(500, self.refresh_pomodoro_widget)
 
     def open_panel(self) -> None:
@@ -1042,7 +1060,7 @@ class DesktopPet:
         win.attributes("-alpha", 0.9)
         glass_bg = "#f8fbff"
         win.configure(bg=glass_bg)
-        win.geometry(f"250x156+{self.x + self.width + 12}+{max(20, self.y)}")
+        win.geometry(self.pet_popup_geometry(250, 156))
 
         frame = tk.Frame(win, bg=glass_bg, highlightthickness=1, highlightbackground="#d9e6f2")
         frame.pack(fill="both", expand=True)
@@ -1070,7 +1088,7 @@ class DesktopPet:
             f"\u5f53\u524d\uff1a{current.process[:22]}"
         )
         self.panel_status.configure(text=status)
-        self.panel_window.geometry(f"250x156+{self.x + self.width + 12}+{max(20, self.y)}")
+        self.panel_window.geometry(self.pet_popup_geometry(250, 156))
         self.root.after(2000, self.refresh_panel)
 
     def speak(self, text: str) -> None:
@@ -1344,7 +1362,7 @@ class DesktopPet:
         win = tk.Toplevel(self.root)
         self.tasks_window = win
         win.title("\u4eca\u65e5\u4e09\u4ef6\u4e8b")
-        win.geometry("520x300")
+        win.geometry(self.pet_popup_geometry(520, 300))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
 
@@ -1448,7 +1466,7 @@ class DesktopPet:
     def open_report_window(self, report_path: Path) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u4eca\u65e5\u603b\u7ed3")
-        win.geometry("680x520")
+        win.geometry(self.pet_popup_geometry(680, 520))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
         text = tk.Text(frame, wrap="word", padx=12, pady=12, bg="#fdfefe", fg="#354251", relief="flat", highlightthickness=1, highlightbackground="#e1ebf3", font=("Microsoft YaHei UI", 10))
@@ -1479,7 +1497,7 @@ class DesktopPet:
     def open_cloud_settings(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("\u4e91\u540c\u6b65")
-        win.geometry("460x330")
+        win.geometry(self.pet_popup_geometry(460, 330))
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win)
 
@@ -1583,7 +1601,7 @@ class DesktopPet:
     def open_deepseek_settings(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("DeepSeek \u914d\u7f6e")
-        win.geometry("470x300")
+        win.geometry(self.pet_popup_geometry(470, 300))
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.94)
         glass_bg = "#f8fbff"
@@ -1637,12 +1655,7 @@ class DesktopPet:
         self.chat_window = win
         win.title("\u548c\u684c\u9762\u840c\u5ba0\u5bf9\u8bdd")
         chat_w, chat_h = 390, 320
-        screen_h = self.root.winfo_screenheight()
-        chat_x = min(max(10, self.x - 86), self.root.winfo_screenwidth() - chat_w - 10)
-        chat_y = self.y + self.height + 10
-        if chat_y + chat_h > screen_h - 20:
-            chat_y = max(20, self.y - chat_h - 10)
-        win.geometry(f"{chat_w}x{chat_h}+{chat_x}+{chat_y}")
+        win.geometry(self.pet_popup_geometry(chat_w, chat_h))
         win.overrideredirect(True)
         win.attributes("-topmost", True)
         win.attributes("-alpha", 0.93)
@@ -2042,7 +2055,7 @@ class DesktopPet:
         win = tk.Toplevel(self.root)
         self.stats_window = win
         win.title("\u4eca\u65e5\u770b\u677f")
-        win.geometry("780x720")
+        win.geometry(self.pet_popup_geometry(780, 720))
         win.minsize(740, 640)
         win.attributes("-topmost", True)
         frame = self.make_glass_frame(win, alpha=0.95)
